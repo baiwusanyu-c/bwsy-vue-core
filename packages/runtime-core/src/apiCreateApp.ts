@@ -319,7 +319,7 @@ export function createAppAPI<HostElement>(
               render(cloneVNode(vnode), rootContainer, isSVG)
             }
           }
-
+          // 开始水合
           if (isHydrate && hydrate) {
             hydrate(vnode as VNode<Node, Element>, rootContainer as any)
           } else {

@@ -66,6 +66,7 @@ export function createHydrationFunctions(
     }
   } = rendererInternals
 
+  // 水合方法，也是整个水合流程的入口，它将在SSR客户端mount时被调用
   const hydrate: RootHydrateFunction = (vnode, container) => {
     if (!container.hasChildNodes()) {
       __DEV__ &&

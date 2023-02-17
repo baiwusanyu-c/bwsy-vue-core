@@ -306,6 +306,7 @@ export function createRenderer<
 export function createHydrationRenderer(
   options: RendererOptions<Node, Element>
 ) {
+  // 创建渲染器，会比 csr 多传入一个水合方法创建函数
   return baseCreateRenderer(options, createHydrationFunctions)
 }
 
@@ -2343,6 +2344,8 @@ function baseCreateRenderer(
 
   let hydrate: ReturnType<typeof createHydrationFunctions>[0] | undefined
   let hydrateNode: ReturnType<typeof createHydrationFunctions>[1] | undefined
+  // 从水合方法创建函数执行结果中获
+  // 取水合方法和水合结果
   if (createHydrationFns) {
     ;[hydrate, hydrateNode] = createHydrationFns(
       internals as RendererInternals<Node, Element>

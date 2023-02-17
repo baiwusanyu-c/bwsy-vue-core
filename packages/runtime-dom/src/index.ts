@@ -45,7 +45,15 @@ function ensureRenderer() {
   )
 }
 
+// 客户端：createSSRApp(此时页面已经渲染,由服务端直接返回的)
+// -> 创建包含水合的渲染器对象 ensureHydrationRenderer -> createHydrationRenderer
+// -> 创建 SSR 客户端的应用实例 app ensureHydrationRenderer().createApp（createAppAPI(render, hydrate)的返回值）
+// -> app.mount (mount 运行时，水合具体方法 在 apiCreateApp 的上下文中)
+// -> 根据页面内容 进行水合
+// 客户端根据 enabledHydration 创建一个包含水合方法的渲染器
+// 在 mount 时进行水合（spa 调用render，ssr的客户端水合调用 hydrate）
 function ensureHydrationRenderer() {
+  // ssr 客户端会调用 createHydrationRenderer 创建可水合的渲染器
   renderer = enabledHydration
     ? renderer
     : createHydrationRenderer(rendererOptions)
@@ -110,7 +118,9 @@ export const createApp = ((...args) => {
   return app
 }) as CreateAppFunction<Element>
 
+// 创建 ssr app应用实例
 export const createSSRApp = ((...args) => {
+  // 先从水合渲染器对象中导出 createApp 方法来创建 app 应用实例
   const app = ensureHydrationRenderer().createApp(...args)
 
   if (__DEV__) {
@@ -118,10 +128,14 @@ export const createSSRApp = ((...args) => {
     injectCompilerOptionsCheck(app)
   }
 
+  // 挂在应用方法
   const { mount } = app
+  // 在 app 上添加一个 mount 方法用于用户传入根容器，将应用挂在到 html 上
   app.mount = (containerOrSelector: Element | ShadowRoot | string): any => {
+    // 挂在应用
     const container = normalizeContainer(containerOrSelector)
     if (container) {
+      // 挂在应用 将应用挂在到 html 上
       return mount(container, true, container instanceof SVGElement)
     }
   }
