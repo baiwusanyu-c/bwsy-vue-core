@@ -52,6 +52,7 @@ const isComment = (node: Node): node is Comment =>
 export function createHydrationFunctions(
   rendererInternals: RendererInternals<Node, Element>
 ) {
+  // 从渲染器内置对象中获取辅助函数（包括挂在、创建、移动、删除节点等）
   const {
     mt: mountComponent,
     p: patch,
@@ -68,6 +69,7 @@ export function createHydrationFunctions(
 
   // 水合方法，也是整个水合流程的入口，它将在SSR客户端mount时被调用
   const hydrate: RootHydrateFunction = (vnode, container) => {
+    // 处理模板容器存不在子节点的情况（可能在服务端生成是发生问题导致），进行全量 patch
     if (!container.hasChildNodes()) {
       __DEV__ &&
         warn(
@@ -79,9 +81,12 @@ export function createHydrationFunctions(
       container._vnode = vnode
       return
     }
+    // 同构匹配缺失标志
     hasMismatch = false
+    // 从容器下第一个节点开始 水合节点
     hydrateNode(container.firstChild!, vnode, null, null, null)
     flushPostFlushCbs()
+    // 存储 vnode 树
     container._vnode = vnode
     if (hasMismatch && !__TEST__) {
       // this error should show up in production
@@ -90,14 +95,16 @@ export function createHydrationFunctions(
   }
 
   const hydrateNode = (
-    node: Node,
-    vnode: VNode,
+    node: Node, // 真实的 dom 节点
+    vnode: VNode, // vnode
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized = false
   ): Node | null => {
+    // 是否是 fragment
     const isFragmentStart = isComment(node) && node.data === '['
+    // 处理同构缺失的函数，当水合过程中，同构失败（服务端客户端结构不符合，调用次函数进行报错）
     const onMismatch = () =>
       handleMismatch(
         node,
@@ -110,27 +117,39 @@ export function createHydrationFunctions(
 
     const { type, ref, shapeFlag, patchFlag } = vnode
     let domType = node.nodeType
+    // 将当前 dom 节点 挂到 vnode.el 上 （与 spa 一样，vnode需要与真实 dom 有联系）
     vnode.el = node
 
+    // 节点编译的 patchFlag 为 BAIL，则退出 dynamicChildren 优化路径
+    // see: packages/shared/src/patchFlags.ts
     if (patchFlag === PatchFlags.BAIL) {
       optimized = false
       vnode.dynamicChildren = null
     }
 
     let nextNode: Node | null = null
+    // 根据 vnode 类型 分别处理
     switch (type) {
+      // vnode 为文本节点
       case Text:
+        // node 不为 文本节点
         if (domType !== DOMNodeTypes.TEXT) {
           // #5728 empty text node inside a slot can cause hydration failure
           // because the server rendered HTML won't contain a text node
+          // vnode 没有子节点（文本）
           if (vnode.children === '') {
+            // 在当前的 node 的 parent node 中创建一个空的文本
             insert((vnode.el = createText('')), parentNode(node)!, node)
+            // 将 nextNode 指向
             nextNode = node
           } else {
+            // 匹配错误，此时 vnode 为文本节点且有子节点（文本），而 node 不是文本节点
             nextNode = onMismatch()
           }
         } else {
+          // node 是文本节点，但不等于 vnode 的 children
           if ((node as Text).data !== vnode.children) {
+            // 直接警告，匹配缺失
             hasMismatch = true
             __DEV__ &&
               warn(
@@ -138,50 +157,70 @@ export function createHydrationFunctions(
                   `\n- Client: ${JSON.stringify((node as Text).data)}` +
                   `\n- Server: ${JSON.stringify(vnode.children)}`
               )
+            // 将 node 替换为 vnode 内容，即客户端渲染内容优先级更高
             ;(node as Text).data = vnode.children as string
           }
+          // nextNode 指向下一个节点
           nextNode = nextSibling(node)
         }
         break
       case Comment:
+        // vnode 节点类型为注释，（ node 类型不为注释，或是 Fragment，则匹配缺失）
+        // 处理警告
         if (domType !== DOMNodeTypes.COMMENT || isFragmentStart) {
           nextNode = onMismatch()
         } else {
+          // nextNode 指向下一个节点，注释节点不需要什么处理
           nextNode = nextSibling(node)
         }
         break
       case Static:
+        // vnode 是纯静态的，而 node 是 Fragment，则将node移动下一个节点，
+        // 并更新 domType， 再进行处理
         if (isFragmentStart) {
           // entire template is static but SSRed as a fragment
           node = nextSibling(node)!
           domType = node.nodeType
         }
+        // node 类型为 元素 或文本
         if (domType === DOMNodeTypes.ELEMENT || domType === DOMNodeTypes.TEXT) {
           // determine anchor, adopt content
+          // 确定锚点为此node
           nextNode = node
           // if the static vnode has its content stripped during build,
           // adopt it from the server-rendered HTML.
+          // 静态节点可能会被静态提升（TODO: ?）,
+          // 那需要从服务端渲染的 html 中获取内容
           const needToAdoptContent = !(vnode.children as string).length
+          // vnode 上记录了静态节点熟练
           for (let i = 0; i < vnode.staticCount!; i++) {
             if (needToAdoptContent)
+              // 拼接内容到 vnode 的 children
               vnode.children +=
                 nextNode.nodeType === DOMNodeTypes.ELEMENT
                   ? (nextNode as Element).outerHTML
                   : (nextNode as Text).data
+            // 遍历结束，记录锚点
             if (i === vnode.staticCount! - 1) {
               vnode.anchor = nextNode
             }
+            // 每次遍历 持续移动 node
             nextNode = nextSibling(nextNode)!
           }
+          // 如果是 Fragment，还要再向下移动一哈 （ ']'）
           return isFragmentStart ? nextSibling(nextNode) : nextNode
         } else {
+          // node 不是文本 或 纯静态节点，报错匹配缺失
           onMismatch()
         }
         break
       case Fragment:
+        // 如果 vnode 是 Fragment，而 node 不是 '['
+        // 报错匹配缺失
         if (!isFragmentStart) {
           nextNode = onMismatch()
         } else {
+          // 水合 Fragment TODO
           nextNode = hydrateFragment(
             node as Comment,
             vnode,
@@ -193,7 +232,10 @@ export function createHydrationFunctions(
         }
         break
       default:
+        // vnode 是普通元素
         if (shapeFlag & ShapeFlags.ELEMENT) {
+          // node 不是普通元素 或 vnode 与 node 的 tag不匹配
+          // 报错匹配缺失
           if (
             domType !== DOMNodeTypes.ELEMENT ||
             (vnode.type as string).toLowerCase() !==
@@ -201,6 +243,7 @@ export function createHydrationFunctions(
           ) {
             nextNode = onMismatch()
           } else {
+            // 水合元素 TODO：
             nextNode = hydrateElement(
               node as Element,
               vnode,
@@ -210,12 +253,18 @@ export function createHydrationFunctions(
               optimized
             )
           }
+          // vnode 是组件
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           // when setting up the render effect, if the initial vnode already
           // has .el set, the component will perform hydration instead of mount
           // on its sub-tree.
+          // 在处理组件时的渲染函数副作用时，如果 vnode 的对应 el 已经被设置，那么组件
+          // 将不再挂在 subtree 而是去执行水合
+          // 设置 css 作用域id
           vnode.slotScopeIds = slotScopeIds
+          // 根据当前 node 的 parent 设置组件的 container
           const container = parentNode(node)!
+          // 挂载组件， 组件挂载时，TODO：水合相关的过程应该散落在各个运行时中
           mountComponent(
             vnode,
             container,
@@ -229,11 +278,17 @@ export function createHydrationFunctions(
           // component may be async, so in the case of fragments we cannot rely
           // on component's rendered output to determine the end of the fragment
           // instead, we do a lookahead to find the end anchor node.
+
+          // 如果组件是异步的，且 node 是 fragment，
+          // 那没办法靠组件渲染的节点的 nextSibling 来确定 nextNode
+          // 所以这里是不是异步组件，我们都遍历 node 来查找确定（locateClosingAsyncAnchor）
           nextNode = isFragmentStart
             ? locateClosingAsyncAnchor(node)
             : nextSibling(node)
 
           // #4293 teleport as component root
+          // 如果 nextNode 指向了 teleport end 注释处理
+          // 继续向下一个节点
           if (
             nextNode &&
             isComment(nextNode) &&
@@ -246,6 +301,10 @@ export function createHydrationFunctions(
           // if component is async, it may get moved / unmounted before its
           // inner component is loaded, so we need to give it a placeholder
           // vnode that matches its adopted DOM.
+          // 如果组件是异步的，则在加载其内部组件之前，它可能会被移动或卸载，
+          // 因此我们需要为其提供一个与其采用的 DOM 匹配的占位符 vnode。
+          // #3787 场景中，ssr 水合时子组件中异步组件还没加载，此时被且走了
+          // 导致切换时报错，因为切走会 patch，但是异步组件又没加载，没有vnode，所以导致了报错
           if (isAsyncWrapper(vnode)) {
             let subTree
             if (isFragmentStart) {
@@ -261,9 +320,11 @@ export function createHydrationFunctions(
             vnode.component!.subTree = subTree
           }
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          // vnode 是 teleport 而 node 不是注释，则报错匹配缺失
           if (domType !== DOMNodeTypes.COMMENT) {
             nextNode = onMismatch()
           } else {
+            // vnode 是 teleport 传送门，则调用其 hydrate 特殊处理 TODO
             nextNode = (vnode.type as typeof TeleportImpl).hydrate(
               node,
               vnode as TeleportVNode,
@@ -276,6 +337,7 @@ export function createHydrationFunctions(
             )
           }
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
+          // vnode 是 suspense 悬挂，则调用其 hydrate 特殊处理 TODO
           nextNode = (vnode.type as typeof SuspenseImpl).hydrate(
             node,
             vnode,
@@ -292,10 +354,12 @@ export function createHydrationFunctions(
         }
     }
 
+    // vnode 存在 ref，则处理相关逻辑（模板上的 ref，设置dom啊这些）
     if (ref != null) {
       setRef(ref, null, parentSuspense, vnode)
     }
-
+    // 返回 nextNode，有些类型（元素、组件...）会在水合过程中递归调用 hydrateNode
+    // 所以需 nextNode 作为处理锚点
     return nextNode
   }
 
