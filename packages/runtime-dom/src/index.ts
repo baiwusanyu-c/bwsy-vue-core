@@ -46,7 +46,7 @@ function ensureRenderer() {
 }
 
 // 客户端：createSSRApp(此时页面已经渲染,由服务端直接返回的)
-// -> 创建包含水合的渲染器对象 ensureHydrationRenderer -> createHydrationRenderer
+// -> 创建包含水合的渲染器对象 ensureHydrationRenderer(服务端也是如此) -> createHydrationRenderer
 // -> 创建 SSR 客户端的应用实例 app ensureHydrationRenderer().createApp（createAppAPI(render, hydrate)的返回值）
 // -> app.mount (mount 运行时，水合具体方法 在 apiCreateApp 的上下文中)
 // -> 根据页面内容 进行水合
