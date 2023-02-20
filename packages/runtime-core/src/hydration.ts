@@ -259,13 +259,15 @@ export function createHydrationFunctions(
           // has .el set, the component will perform hydration instead of mount
           // on its sub-tree.
           // 在处理组件时的渲染函数副作用时，如果 vnode 的对应 el 已经被设置，那么组件
-          // 将不再挂在 subtree 而是去执行水合
+          // 将不再挂载 subtree 而是去执行水合
 
           // 设置 css 作用域 id
           vnode.slotScopeIds = slotScopeIds
           // 根据当前 node 的 parent 设置组件的 container
           const container = parentNode(node)!
-          // 挂载组件， 组件挂载时，TODO$$：水合相关的过程应该散落在各个运行时中
+          // 挂载组件， 组件挂载时，
+          // packages/runtime-core/src/renderer.ts
+          // line 1330
           mountComponent(
             vnode,
             container,
