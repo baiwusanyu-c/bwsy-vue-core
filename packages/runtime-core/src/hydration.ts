@@ -220,7 +220,7 @@ export function createHydrationFunctions(
         if (!isFragmentStart) {
           nextNode = onMismatch()
         } else {
-          // 水合 Fragment TODO
+          // 水合 Fragment
           nextNode = hydrateFragment(
             node as Comment,
             vnode,
@@ -565,13 +565,15 @@ export function createHydrationFunctions(
     optimized: boolean
   ) => {
     const { slotScopeIds: fragmentSlotScopeIds } = vnode
+    // 处理 slotIds 槽作用域 ID 的插槽片段
     if (fragmentSlotScopeIds) {
       slotScopeIds = slotScopeIds
         ? slotScopeIds.concat(fragmentSlotScopeIds)
         : fragmentSlotScopeIds
     }
-
+    // 根据 node 获取容器
     const container = parentNode(node)!
+    // 水合 children
     const next = hydrateChildren(
       nextSibling(node)!,
       vnode,
@@ -581,13 +583,17 @@ export function createHydrationFunctions(
       slotScopeIds,
       optimized
     )
+    // 水合完成后，如果 next 节点 是 ']'（fragment 结束占位符）
+    // 则返回下一个节点
     if (next && isComment(next) && next.data === ']') {
       return nextSibling((vnode.anchor = next))
     } else {
+      // 报错匹配缺失
       // fragment didn't hydrate successfully, since we didn't get a end anchor
       // back. This should have led to node/children mismatch warnings.
       hasMismatch = true
       // since the anchor is missing, we need to create one and insert it
+      // 由于缺少锚点，我们需要创建一个并插入它
       insert((vnode.anchor = createComment(`]`)), container, next)
       return next
     }
@@ -601,6 +607,7 @@ export function createHydrationFunctions(
     slotScopeIds: string[] | null,
     isFragment: boolean
   ): Node | null => {
+    // 报错处理
     hasMismatch = true
     __DEV__ &&
       warn(
@@ -616,6 +623,7 @@ export function createHydrationFunctions(
       )
     vnode.el = null
 
+    //  fragment 类型还需要移除多余的节点
     if (isFragment) {
       // remove excessive fragment nodes
       const end = locateClosingAsyncAnchor(node)
@@ -632,7 +640,6 @@ export function createHydrationFunctions(
     const next = nextSibling(node)
     const container = parentNode(node)!
     remove(node)
-
     patch(
       null,
       vnode,
