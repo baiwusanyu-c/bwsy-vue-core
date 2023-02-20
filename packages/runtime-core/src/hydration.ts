@@ -189,10 +189,10 @@ export function createHydrationFunctions(
           nextNode = node
           // if the static vnode has its content stripped during build,
           // adopt it from the server-rendered HTML.
-          // 静态节点可能会被静态提升（TODO: ?）,
+          // 静态节点可能会被静态提升（甚至提升为纯字符串）（TODO: ?）,
           // 那需要从服务端渲染的 html 中获取内容
           const needToAdoptContent = !(vnode.children as string).length
-          // vnode 上记录了静态节点熟练
+          // vnode 上记录了静态节点数量
           for (let i = 0; i < vnode.staticCount!; i++) {
             if (needToAdoptContent)
               // 拼接内容到 vnode 的 children
@@ -243,7 +243,7 @@ export function createHydrationFunctions(
           ) {
             nextNode = onMismatch()
           } else {
-            // 水合元素 TODO：
+            // 水合元素
             nextNode = hydrateElement(
               node as Element,
               vnode,
@@ -260,11 +260,12 @@ export function createHydrationFunctions(
           // on its sub-tree.
           // 在处理组件时的渲染函数副作用时，如果 vnode 的对应 el 已经被设置，那么组件
           // 将不再挂在 subtree 而是去执行水合
-          // 设置 css 作用域id
+
+          // 设置 css 作用域 id
           vnode.slotScopeIds = slotScopeIds
           // 根据当前 node 的 parent 设置组件的 container
           const container = parentNode(node)!
-          // 挂载组件， 组件挂载时，TODO：水合相关的过程应该散落在各个运行时中
+          // 挂载组件， 组件挂载时，TODO$$：水合相关的过程应该散落在各个运行时中
           mountComponent(
             vnode,
             container,
@@ -371,6 +372,7 @@ export function createHydrationFunctions(
     slotScopeIds: string[] | null,
     optimized: boolean
   ) => {
+    // 是否开启优化逻辑（fast path）
     optimized = optimized || !!vnode.dynamicChildren
     const { type, props, patchFlag, shapeFlag, dirs } = vnode
     // #4006 for form elements with non-string v-model value bindings
@@ -378,17 +380,24 @@ export function createHydrationFunctions(
     const forcePatchValue = (type === 'input' && dirs) || type === 'option'
     // skip props & children if this is hoisted static nodes
     // #5405 in dev, always hydrate children for HMR
+    // dev 水合子节点总是能够热更新的，
+    // 如果 vnode 不是被静态提升的节点，进行钩子绑定和 props 处理
     if (__DEV__ || forcePatchValue || patchFlag !== PatchFlags.HOISTED) {
+      // 触发指令钩子
       if (dirs) {
         invokeDirectiveHook(vnode, null, parentComponent, 'created')
       }
       // props
+      // 处理 props
       if (props) {
+        // 非优化 || 含有动态 key || 具有事件
         if (
           forcePatchValue ||
           !optimized ||
           patchFlag & (PatchFlags.FULL_PROPS | PatchFlags.HYDRATE_EVENTS)
         ) {
+          // 遍历 props，对元素进行属性绑定, 包括各种属性、事件绑定
+          // packages/runtime-dom/src/patchProp.ts
           for (const key in props) {
             if (
               (forcePatchValue && key.endsWith('value')) ||
@@ -408,6 +417,8 @@ export function createHydrationFunctions(
         } else if (props.onClick) {
           // Fast path for click listeners (which is most often) to avoid
           // iterating through props.
+          // 在快速路径下，vnode 具有点击事件是非常常见的，
+          // 这里直接判断，并取出来进行 patchProps
           patchProp(
             el,
             'onClick',
@@ -420,13 +431,17 @@ export function createHydrationFunctions(
         }
       }
       // vnode / directive hooks
+      // vnode 钩子钩子或指令钩子
       let vnodeHooks: VNodeHook | null | undefined
+      // 组件钩子 onBeforeMount
       if ((vnodeHooks = props && props.onVnodeBeforeMount)) {
         invokeVNodeHook(vnodeHooks, parentComponent, vnode)
       }
+      // 指令钩子 beforeMount
       if (dirs) {
         invokeDirectiveHook(vnode, null, parentComponent, 'beforeMount')
       }
+      // 组件钩子、指令钩子 onMounted
       if ((vnodeHooks = props && props.onVnodeMounted) || dirs) {
         queueEffectWithSuspense(() => {
           vnodeHooks && invokeVNodeHook(vnodeHooks, parentComponent, vnode)
@@ -434,11 +449,13 @@ export function createHydrationFunctions(
         }, parentSuspense)
       }
       // children
+      // vnode 的类型为 `子节点数组` 且内容不是文本或静态提升字符串
       if (
         shapeFlag & ShapeFlags.ARRAY_CHILDREN &&
         // skip if element has innerHTML / textContent
         !(props && (props.innerHTML || props.textContent))
       ) {
+        // 水合子节点
         let next = hydrateChildren(
           el.firstChild,
           vnode,
@@ -449,6 +466,9 @@ export function createHydrationFunctions(
           optimized
         )
         let hasWarned = false
+        // next 代表子节点数组处理完后，服务端渲染的节点是否还有没处理的节点
+        // 即客户端的 vnode 树已经水合完，但是服务端渲染的 dom 树还有节点
+        // 那么就匹配失败，将多余的节点删除，以客户端优先
         while (next) {
           hasMismatch = true
           if (__DEV__ && !hasWarned) {
@@ -464,6 +484,8 @@ export function createHydrationFunctions(
           remove(cur)
         }
       } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+        // 如果 vnode 是 '子节点文本'
+        // 文本不一致就替换并报错匹配缺失
         if (el.textContent !== vnode.children) {
           hasMismatch = true
           __DEV__ &&
