@@ -62,6 +62,7 @@ export const SuspenseImpl = {
     // platform-specific impl passed from renderer
     rendererInternals: RendererInternals
   ) {
+    // 挂在 suspense
     if (n1 == null) {
       mountSuspense(
         n2,
@@ -75,6 +76,7 @@ export const SuspenseImpl = {
         rendererInternals
       )
     } else {
+      // 更新 suspense TODO
       patchSuspense(
         n1,
         n2,
@@ -88,9 +90,11 @@ export const SuspenseImpl = {
       )
     }
   },
-  hydrate: hydrateSuspense,
+  hydrate: hydrateSuspense, // 水合方法
+  // 创建 suspense 边界
+  // （suspense 插槽内的子组件可能会是多个或深层次的异步组件，需要确定 pending 边界）
   create: createSuspenseBoundary,
-  normalize: normalizeSuspenseChildren
+  normalize: normalizeSuspenseChildren // 标准化 suspense 的 children
 }
 
 // Force-casted public typing for h and TSX props inference
@@ -101,6 +105,7 @@ export const Suspense = (__FEATURE_SUSPENSE__
   new (): { $props: VNodeProps & SuspenseProps }
 }
 
+// 触发 suspense 的相关钩子方法
 function triggerEvent(
   vnode: VNode,
   name: 'onResolve' | 'onPending' | 'onFallback'
@@ -122,11 +127,14 @@ function mountSuspense(
   optimized: boolean,
   rendererInternals: RendererInternals
 ) {
+  // 从内置的 helper 方法中获取 patch vnode 方法、创建元素方法
   const {
     p: patch,
     o: { createElement }
   } = rendererInternals
+  // 创建一个 容器 div，
   const hiddenContainer = createElement('div')
+  // 创建 suspense 边界实例 TODO
   const suspense = (vnode.suspense = createSuspenseBoundary(
     vnode,
     parentSuspense,
@@ -141,6 +149,7 @@ function mountSuspense(
   ))
 
   // start mounting the content subtree in an off-dom container
+  // 开始挂载时，将其挂载到 hiddenContainer 下
   patch(
     null,
     (suspense.pendingBranch = vnode.ssContent!),
@@ -152,13 +161,18 @@ function mountSuspense(
     slotScopeIds
   )
   // now check if we have encountered any async deps
+  // 检查是否遇到了异步依赖，
+  // 即第一遍 mount 完，立即检查一次 deps，是否有异步组件，
+  // 有异步组件，就切换到后备插槽分支， fallback
   if (suspense.deps > 0) {
     // has async
     // invoke @fallback event
+    // 触发钩子
     triggerEvent(vnode, 'onPending')
     triggerEvent(vnode, 'onFallback')
 
     // mount the fallback tree
+    // 挂载后备内容 fallback
     patch(
       null,
       vnode.ssFallback!,
@@ -169,13 +183,15 @@ function mountSuspense(
       isSVG,
       slotScopeIds
     )
+    // 有异步组件，就切换到后备插槽分支， fallback
     setActiveBranch(suspense, vnode.ssFallback!)
   } else {
+    // 没有异步依赖组件，就直接 resolve
     // Suspense has no async deps. Just resolve.
     suspense.resolve()
   }
 }
-
+// 更新 suspense TODO
 function patchSuspense(
   n1: VNode,
   n2: VNode,
@@ -415,6 +431,7 @@ function createSuspenseBoundary(
     )
   }
 
+  // 从内置 helper 获取方法
   const {
     p: patch,
     m: move,
@@ -428,6 +445,7 @@ function createSuspenseBoundary(
     assertNumber(timeout, `Suspense timeout`)
   }
 
+  // suspense 边界实例
   const suspense: SuspenseBoundary = {
     vnode,
     parent,
@@ -439,13 +457,14 @@ function createSuspenseBoundary(
     deps: 0,
     pendingId: 0,
     timeout: typeof timeout === 'number' ? timeout : -1,
-    activeBranch: null,
-    pendingBranch: null,
+    activeBranch: null, // 激活分支
+    pendingBranch: null, // 等待分支
     isInFallback: true,
     isHydrating,
     isUnmounted: false,
     effects: [],
-
+    // suspense resolve，由 fallback 切换到模板组件展示
+    // 当异步组件被 resolve 后，此函数在 registerDep 的回调中被调用
     resolve(resume = false) {
       if (__DEV__) {
         if (!resume && !suspense.pendingBranch) {
@@ -468,14 +487,17 @@ function createSuspenseBoundary(
         parentComponent,
         container
       } = suspense
+      // suspense 是否处于水合
 
       if (suspense.isHydrating) {
         suspense.isHydrating = false
       } else if (!resume) {
+        // suspense 不恢复 ？
         const delayEnter =
           activeBranch &&
           pendingBranch!.transition &&
           pendingBranch!.transition.mode === 'out-in'
+        // 是否有 transition 动画？
         if (delayEnter) {
           activeBranch!.transition!.afterLeave = () => {
             if (pendingId === suspense.pendingId) {
@@ -484,26 +506,35 @@ function createSuspenseBoundary(
           }
         }
         // this is initial anchor on mount
+        // 获取初始挂载时的锚点
         let { anchor } = suspense
         // unmount current active tree
+        // 如果当前的 fallback 后备内容被挂载了，就移动一下锚点
+        // 然后卸载 fallback
         if (activeBranch) {
           // if the fallback tree was mounted, it may have been moved
           // as part of a parent suspense. get the latest anchor for insertion
           anchor = next(activeBranch)
           unmount(activeBranch, parentComponent, suspense, true)
         }
+        //
         if (!delayEnter) {
           // move content from off-dom container to actual container
+          // 将内容从 hiddenContainer 移动到目标 container 中
           move(pendingBranch!, container, anchor, MoveType.ENTER)
         }
       }
 
+      // 设置当前的 pendingBranch（content 内容） 为激活分支
       setActiveBranch(suspense, pendingBranch!)
       suspense.pendingBranch = null
       suspense.isInFallback = false
 
       // flush buffered effects
       // check if there is a pending parent suspense
+      // 一层层向上遍历 parent，如果 parent 存在 suspense，且有 pendingBranch
+      // 将当前的 suspense 的 effects 设置到 parent 的 suspense 上
+
       let parent = suspense.parent
       let hasUnresolvedAncestor = false
       while (parent) {
@@ -514,18 +545,22 @@ function createSuspenseBoundary(
           hasUnresolvedAncestor = true
           break
         }
+        // 向上遍历
         parent = parent.parent
       }
       // no pending parent suspense, flush all jobs
+      // 执行所有依赖
       if (!hasUnresolvedAncestor) {
         queuePostFlushCb(effects)
       }
       suspense.effects = []
 
       // invoke @resolve event
+      // 触发 onResolve 事件
       triggerEvent(vnode, 'onResolve')
     },
-
+    // fallBack 分支逻辑，
+    // 初始化时不会调用（TODO：猜测是回退时调用）
     fallback(fallbackVNode) {
       if (!suspense.pendingBranch) {
         return
@@ -535,14 +570,18 @@ function createSuspenseBoundary(
         suspense
 
       // invoke @fallback event
+      // 触发 fallback 事件
       triggerEvent(vnode, 'onFallback')
-
+      // 執行 vnode.suspense!.next()
+      // 递归的从当前激活分支获取 dom 节点作为锚点
       const anchor = next(activeBranch!)
+      // 挂载 fallback 分支
       const mountFallback = () => {
         if (!suspense.isInFallback) {
           return
         }
         // mount the fallback tree
+        // 挂载 fallback 分支
         patch(
           null,
           fallbackVNode,
@@ -554,17 +593,18 @@ function createSuspenseBoundary(
           slotScopeIds,
           optimized
         )
+        // 设置当前激活分支为 fallback
         setActiveBranch(suspense, fallbackVNode)
       }
-
+      // 设置 transition
       const delayEnter =
         fallbackVNode.transition && fallbackVNode.transition.mode === 'out-in'
       if (delayEnter) {
         activeBranch!.transition!.afterLeave = mountFallback
       }
       suspense.isInFallback = true
-
       // unmount current active branch
+      // 执行挂载 fallback前，卸载当前激活分支
       unmount(
         activeBranch!,
         parentComponent,
@@ -572,22 +612,32 @@ function createSuspenseBoundary(
         true // shouldRemove
       )
 
+      // 执行挂载 fallback
       if (!delayEnter) {
         mountFallback()
       }
     },
-
+    // 递归移动 container ，假设嵌套了两个 suspense，那么 move 函数运行时
+    // 会把第二层的 suspense 的 container 设置为 第一层的 suspense.activeBranch
+    // move 实际上执行的是 vnode.suspense!.move()
     move(container, anchor, type) {
       suspense.activeBranch &&
         move(suspense.activeBranch, container, anchor, type)
       suspense.container = container
     },
-
+    // next 实际上执行的是 vnode.suspense!.next()
+    // 主要功能是递归的从当前激活分支获取 dom 节点作为锚点
     next() {
       return suspense.activeBranch && next(suspense.activeBranch)
     },
 
     registerDep(instance, setupRenderEffect) {
+      // 由于 parentSuspense 是向下逐层传递的，所以
+      // 当遇到异步组件时，就会调用 parentSuspense.registerDep，
+      // registerDep 在 runtime 调用时，首次被调用，instance 并不一定是子组件，
+      // 而是整个 subtree 的首个 异步组件
+      // 是否处于 pending 中，处于，则说明 suspense 的子树还没有被 resolve
+      // 依赖计数 + 1
       const isInPendingSuspense = !!suspense.pendingBranch
       if (isInPendingSuspense) {
         suspense.deps++
@@ -597,6 +647,7 @@ function createSuspenseBoundary(
         .asyncDep!.catch(err => {
           handleError(err, instance, ErrorCodes.SETUP_FUNCTION)
         })
+        // 当异步组件被 resolve，就会进入这个回调
         .then(asyncSetupResult => {
           // retry when the setup() promise resolves.
           // component may have been unmounted before resolve.
@@ -613,6 +664,7 @@ function createSuspenseBoundary(
           if (__DEV__) {
             pushWarningContext(vnode)
           }
+          // 处理组件 SetupResult
           handleSetupResult(instance, asyncSetupResult, false)
           if (hydratedEl) {
             // vnode may have been replaced if an update happened before the
@@ -620,6 +672,7 @@ function createSuspenseBoundary(
             vnode.el = hydratedEl
           }
           const placeholder = !hydratedEl && instance.subTree.el
+          // 执行 setupRenderEffect，进行依赖收集
           setupRenderEffect(
             instance,
             vnode,
@@ -642,13 +695,15 @@ function createSuspenseBoundary(
             popWarningContext()
           }
           // only decrease deps count if suspense is not already resolved
+          // 触发 suspense.resolve() 进行分支切换渲染
           if (isInPendingSuspense && --suspense.deps === 0) {
             suspense.resolve()
           }
         })
     },
-
+    // 卸载整个 suspense，包括 activeBranch、pendingBranch
     unmount(parentSuspense, doRemove) {
+      // 卸载方法，使用  unmount 卸载两个 activeBranch、pendingBranch 分支
       suspense.isUnmounted = true
       if (suspense.activeBranch) {
         unmount(
@@ -671,7 +726,7 @@ function createSuspenseBoundary(
 
   return suspense
 }
-
+// TODO
 function hydrateSuspense(
   node: Node,
   vnode: VNode,
@@ -724,7 +779,7 @@ function hydrateSuspense(
   return result
   /* eslint-enable no-restricted-globals */
 }
-
+// TODO
 function normalizeSuspenseChildren(vnode: VNode) {
   const { shapeFlag, children } = vnode
   const isSlotChildren = shapeFlag & ShapeFlags.SLOTS_CHILDREN
@@ -735,7 +790,7 @@ function normalizeSuspenseChildren(vnode: VNode) {
     ? normalizeSuspenseSlot((children as Slots).fallback)
     : createVNode(Comment)
 }
-
+// TODO
 function normalizeSuspenseSlot(s: any) {
   let block: VNode[] | null | undefined
   if (isFunction(s)) {
@@ -767,7 +822,7 @@ function normalizeSuspenseSlot(s: any) {
   }
   return s
 }
-
+// TODO
 export function queueEffectWithSuspense(
   fn: Function | Function[],
   suspense: SuspenseBoundary | null
@@ -784,11 +839,14 @@ export function queueEffectWithSuspense(
 }
 
 function setActiveBranch(suspense: SuspenseBoundary, branch: VNode) {
+  // 将传入的分支设置为 suspense 的激活分支
   suspense.activeBranch = branch
   const { vnode, parentComponent } = suspense
+  // 替换 vnode 上 el 为 当前分支 el
   const el = (vnode.el = branch.el)
   // in case suspense is the root node of a component,
   // recursively update the HOC el
+  // 如果 suspense 是组件的根节点，请递归更新 HOC el
   if (parentComponent && parentComponent.subTree === vnode) {
     parentComponent.vnode.el = el
     updateHOCHostEl(parentComponent, el)
