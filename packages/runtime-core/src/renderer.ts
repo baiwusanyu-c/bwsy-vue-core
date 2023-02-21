@@ -1357,7 +1357,7 @@ function baseCreateRenderer(
               // a server-rendered async wrapper is already in resolved state
               // and it will never need to change.
               () => {
-                // return (!instance.isUnmounted && hydrateSubTree())
+                // lazy hydrate mode should prevent hydrate sub tree
                 return !instance.props.lazy
                   ? !instance.isUnmounted && hydrateSubTree()
                   : null
