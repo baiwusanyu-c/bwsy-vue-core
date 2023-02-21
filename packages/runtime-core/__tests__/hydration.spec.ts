@@ -1086,7 +1086,7 @@ describe('SSR hydration', () => {
   })
 
   describe('lazy hydration', () => {
-    test('ref & defineAsyncComponent lazy hydration', async () => {
+    test('lazy hydration: ref & defineAsyncComponent', async () => {
       const spy = vi.fn()
       const Comp = () =>
         h(
@@ -1151,7 +1151,7 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).toHaveBeenCalled()
     })
-    test('ref & defineAsyncComponent & Suspense lazy hydration', async () => {
+    test('lazy hydration: ref & defineAsyncComponent & Suspense', async () => {
       const spy = vi.fn()
       const Comp = () =>
         h(
