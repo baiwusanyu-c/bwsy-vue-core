@@ -772,72 +772,6 @@ describe('SSR hydration', () => {
     expect(spy).toHaveBeenCalled()
   })
 
-  test('test lazy hydration', async () => {
-    const spy = vi.fn()
-    const Comp = () =>
-      h(
-        'button',
-        {
-          onClick: spy
-        },
-        'hello!'
-      )
-
-    let serverResolve: any
-    let AsyncComp = defineAsyncComponent(
-      () =>
-        new Promise(r => {
-          serverResolve = r
-        })
-    )
-
-    const lazy = ref(true)
-    const App = {
-      render() {
-        return ['hello', h(AsyncComp, { lazy: lazy.value }), 'world']
-      }
-    }
-
-    // server render
-    const htmlPromise = renderToString(h(App))
-    serverResolve(Comp)
-    const html = await htmlPromise
-    expect(html).toMatchInlineSnapshot(
-      `"<!--[-->hello<button>hello!</button>world<!--]-->"`
-    )
-
-    // hydration
-    let clientResolve: any
-    AsyncComp = defineAsyncComponent(
-      () =>
-        new Promise(r => {
-          clientResolve = r
-        })
-    )
-
-    const container = document.createElement('div')
-    container.innerHTML = html
-    createSSRApp(App).mount(container)
-
-    // hydration not complete yet
-    triggerEvent('click', container.querySelector('button')!)
-    expect(spy).not.toHaveBeenCalled()
-
-    // resolve
-    clientResolve(Comp)
-    await new Promise(r => setTimeout(r))
-
-    // should be hydrated now
-    triggerEvent('click', container.querySelector('button')!)
-    expect(spy).not.toHaveBeenCalled()
-
-    lazy.value = false
-    await new Promise(r => setTimeout(r))
-    // should be hydrated now
-    triggerEvent('click', container.querySelector('button')!)
-    expect(spy).toHaveBeenCalled()
-  })
-
   test('update async wrapper before resolve', async () => {
     const Comp = {
       render() {
@@ -1148,6 +1082,74 @@ describe('SSR hydration', () => {
       )
       expect(teleportContainer.innerHTML).toBe(`<span>value</span>`)
       expect(`Hydration children mismatch`).toHaveBeenWarned()
+    })
+  })
+
+  describe('lazy hydration', () => {
+    test('ref control hydration', async () => {
+      const spy = vi.fn()
+      const Comp = () =>
+        h(
+          'button',
+          {
+            onClick: spy
+          },
+          'hello!'
+        )
+
+      let serverResolve: any
+      let AsyncComp = defineAsyncComponent(
+        () =>
+          new Promise(r => {
+            serverResolve = r
+          })
+      )
+
+      const lazy = ref(true)
+      const App = {
+        render() {
+          return ['hello', h(AsyncComp, { lazy: lazy.value }), 'world']
+        }
+      }
+
+      // server render
+      const htmlPromise = renderToString(h(App))
+      serverResolve(Comp)
+      const html = await htmlPromise
+      expect(html).toMatchInlineSnapshot(
+        `"<!--[-->hello<button>hello!</button>world<!--]-->"`
+      )
+
+      // lazy hydration
+      let clientResolve: any
+      AsyncComp = defineAsyncComponent(
+        () =>
+          new Promise(r => {
+            clientResolve = r
+          })
+      )
+
+      const container = document.createElement('div')
+      container.innerHTML = html
+      createSSRApp(App).mount(container)
+
+      // hydration not complete yet
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+
+      // resolve
+      clientResolve(Comp)
+      await new Promise(r => setTimeout(r))
+
+      // should not be hydrated
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+
+      lazy.value = false
+      await new Promise(r => setTimeout(r))
+      // should be hydrated now
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).toHaveBeenCalled()
     })
   })
 })
