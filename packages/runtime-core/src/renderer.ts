@@ -1356,7 +1356,12 @@ function baseCreateRenderer(
               // which means it won't track dependencies - but it's ok because
               // a server-rendered async wrapper is already in resolved state
               // and it will never need to change.
-              () => !instance.isUnmounted && hydrateSubTree()
+              () => {
+                // return (!instance.isUnmounted && hydrateSubTree())
+                return !instance.props.lazy
+                  ? !instance.isUnmounted && hydrateSubTree()
+                  : null
+              }
             )
           } else {
             hydrateSubTree()

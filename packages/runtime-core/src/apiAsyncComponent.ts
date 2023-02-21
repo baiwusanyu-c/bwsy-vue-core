@@ -119,7 +119,12 @@ export function defineAsyncComponent<
     get __asyncResolved() {
       return resolvedComp
     },
-
+    props: {
+      lazy: {
+        type: Boolean,
+        default: false
+      }
+    },
     setup() {
       const instance = currentInstance!
 
