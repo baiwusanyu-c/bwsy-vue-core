@@ -1312,5 +1312,6 @@ describe('SSR hydration', () => {
     // TODO: should update props even if hydration is delayed
     // TODO: should update props even if hydration is delayed (with Suspense)
     // TODO: should not break if the parent is a renderless component and has been updated
+    // TODO: should run onCleanup hook when component has been unmounted
   })
 })
