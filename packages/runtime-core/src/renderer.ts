@@ -1332,6 +1332,7 @@ function baseCreateRenderer(
               startMeasure(instance, `render`)
             }
             instance.subTree = renderComponentRoot(instance)
+            instance.subTree.hydrated = true
             if (__DEV__) {
               endMeasure(instance, `render`)
             }
@@ -1443,7 +1444,6 @@ function baseCreateRenderer(
         // #2458: deference mount-only object parameters to prevent memleaks
         initialVNode = container = anchor = null as any
       } else {
-        // TODO:bwsy
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)
@@ -1493,17 +1493,38 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `patch`)
         }
-        patch(
-          prevTree,
-          nextTree,
-          // parent may have changed if it's in a teleport
-          hostParentNode(prevTree.el!)!,
-          // anchor may have changed if it's in a fragment
-          getNextHostNode(prevTree),
-          instance,
-          parentSuspense,
-          isSVG
-        )
+
+        // TODO:bwsy 应该水合 且 lazy标志为false
+
+        if(prevTree.hydrated && instance.props && !instance.props.lazy){
+          debugger
+          !instance.isUnmounted && hydrateNode!(
+              instance.vnode.el as Node,
+              instance.subTree,
+              instance,
+              parentSuspense,
+              null,
+              false,
+              !!(instance.props && instance.props.lazy)
+          )
+          return
+        }else{
+          // TODO:bwsy 不应该水合，说明已经水合过
+          if(prevTree.hydrated) return
+          debugger
+          patch(
+              prevTree,
+              nextTree,
+              // parent may have changed if it's in a teleport
+              hostParentNode(prevTree.el!)!,
+              // anchor may have changed if it's in a fragment
+              getNextHostNode(prevTree),
+              instance,
+              parentSuspense,
+              isSVG
+          )
+        }
+
         if (__DEV__) {
           endMeasure(instance, `patch`)
         }

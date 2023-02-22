@@ -98,8 +98,10 @@ export function createHydrationFunctions(
     lazy = false
   ): Node | null => {
     if (lazy) {
+      vnode.el = node.nodeType === 3 ? createTextVNode('') : createVNode('div')
       return node
     }
+    vnode.hydrated = false
     // TODO:bwsy
     const isFragmentStart = isComment(node) && node.data === '['
     const onMismatch = () =>
