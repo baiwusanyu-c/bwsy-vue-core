@@ -1338,6 +1338,7 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `hydrate`)
             }
+            // TODO:bwsy
             hydrateNode!(
               el as Node,
               instance.subTree,
@@ -1356,12 +1357,7 @@ function baseCreateRenderer(
               // which means it won't track dependencies - but it's ok because
               // a server-rendered async wrapper is already in resolved state
               // and it will never need to change.
-              () => {
-                // lazy hydrate mode should prevent hydrate subtree
-                return !instance.props.lazy
-                  ? !instance.isUnmounted && hydrateSubTree()
-                  : null
-              }
+              () => !instance.isUnmounted && hydrateSubTree()
             )
           } else {
             hydrateSubTree()

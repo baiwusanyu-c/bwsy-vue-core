@@ -687,8 +687,10 @@ function hydrateSuspense(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    optimized: boolean
-  ) => Node | null
+    optimized: boolean,
+    lazy: boolean
+  ) => Node | null,
+  lazy: boolean
 ): Node | null {
   /* eslint-disable no-restricted-globals */
   const suspense = (vnode.suspense = createSuspenseBoundary(
@@ -716,7 +718,8 @@ function hydrateSuspense(
     parentComponent,
     suspense,
     slotScopeIds,
-    optimized
+    optimized,
+    lazy
   )
   if (suspense.deps === 0) {
     suspense.resolve()

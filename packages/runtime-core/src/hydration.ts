@@ -94,8 +94,10 @@ export function createHydrationFunctions(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    optimized = false
+    optimized = false,
+    lazy = false
   ): Node | null => {
+    // TODO:bwsy
     const isFragmentStart = isComment(node) && node.data === '['
     const onMismatch = () =>
       handleMismatch(
@@ -187,7 +189,8 @@ export function createHydrationFunctions(
             parentComponent,
             parentSuspense,
             slotScopeIds,
-            optimized
+            optimized,
+            lazy
           )
         }
         break
@@ -206,7 +209,8 @@ export function createHydrationFunctions(
               parentComponent,
               parentSuspense,
               slotScopeIds,
-              optimized
+              optimized,
+              lazy
             )
           }
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
@@ -271,7 +275,8 @@ export function createHydrationFunctions(
               slotScopeIds,
               optimized,
               rendererInternals,
-              hydrateChildren
+              hydrateChildren,
+              lazy
             )
           }
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
@@ -284,7 +289,8 @@ export function createHydrationFunctions(
             slotScopeIds,
             optimized,
             rendererInternals,
-            hydrateNode
+            hydrateNode,
+            lazy
           )
         } else if (__DEV__) {
           warn('Invalid HostVNode type:', type, `(${typeof type})`)
@@ -304,7 +310,8 @@ export function createHydrationFunctions(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    optimized: boolean
+    optimized: boolean,
+    lazy: boolean
   ) => {
     optimized = optimized || !!vnode.dynamicChildren
     const { type, props, patchFlag, shapeFlag, dirs } = vnode
@@ -381,7 +388,8 @@ export function createHydrationFunctions(
           parentComponent,
           parentSuspense,
           slotScopeIds,
-          optimized
+          optimized,
+          lazy
         )
         let hasWarned = false
         while (next) {
@@ -423,7 +431,8 @@ export function createHydrationFunctions(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    optimized: boolean
+    optimized: boolean,
+    lazy: boolean
   ): Node | null => {
     optimized = optimized || !!parentVNode.dynamicChildren
     const children = parentVNode.children as VNode[]
@@ -440,7 +449,8 @@ export function createHydrationFunctions(
           parentComponent,
           parentSuspense,
           slotScopeIds,
-          optimized
+          optimized,
+          lazy
         )
       } else if (vnode.type === Text && !vnode.children) {
         continue
@@ -475,7 +485,8 @@ export function createHydrationFunctions(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    optimized: boolean
+    optimized: boolean,
+    lazy: boolean
   ) => {
     const { slotScopeIds: fragmentSlotScopeIds } = vnode
     if (fragmentSlotScopeIds) {
@@ -492,7 +503,8 @@ export function createHydrationFunctions(
       parentComponent,
       parentSuspense,
       slotScopeIds,
-      optimized
+      optimized,
+      lazy
     )
     if (next && isComment(next) && next.data === ']') {
       return nextSibling((vnode.anchor = next))

@@ -1308,7 +1308,75 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).toHaveBeenCalled()
     })
-    // TODO: should not update component if hydration is delayed
+    test('lazy hydration: should update props', async () => {
+      const spy = vi.fn()
+      const foo = ref('foo')
+      const Comp = {
+        render() {
+          return h(
+            'button',
+            {
+              onClick: spy
+            },
+            foo.value
+          )
+        }
+      }
+
+      let serverResolve: any
+      let AsyncComp = defineAsyncComponent(
+        () =>
+          new Promise(r => {
+            serverResolve = r
+          })
+      )
+      const App = {
+        render() {
+          return h(AsyncComp, { lazy: true })
+        }
+      }
+
+      // server render
+      const htmlPromise = renderToString(h(App))
+      serverResolve(Comp)
+      const html = await htmlPromise
+      // expect(html).toMatchInlineSnapshot(
+      //   `"<button lazy=\\"true\\">foo</button>"`
+      // )
+
+      // lazy hydration
+      let clientResolve: any
+      AsyncComp = defineAsyncComponent(
+        () =>
+          new Promise(r => {
+            clientResolve = r
+          })
+      )
+
+      const container = document.createElement('div')
+      container.innerHTML = html
+      createSSRApp(App).mount(container)
+
+      // hydration not complete yet
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+
+      // resolve
+      clientResolve(Comp)
+      await new Promise(r => setTimeout(r))
+
+      // should not be hydrated
+      triggerEvent('click', container.querySelector('button')!)
+      //expect(spy).not.toHaveBeenCalled()
+
+      foo.value = 'change'
+      await new Promise(r => setTimeout(r))
+      await nextTick()
+      // should be hydrated now
+      triggerEvent('click', container.querySelector('button')!)
+      //expect(spy).not.toHaveBeenCalled()
+      expect(container.querySelector('button')?.innerHTML).toBe('change')
+    })
     // TODO: should update props even if hydration is delayed
     // TODO: should update props even if hydration is delayed (with Suspense)
     // TODO: should not break if the parent is a renderless component and has been updated
