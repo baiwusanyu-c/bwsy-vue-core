@@ -97,6 +97,9 @@ export function createHydrationFunctions(
     optimized = false,
     lazy = false
   ): Node | null => {
+    if (lazy) {
+      return node
+    }
     // TODO:bwsy
     const isFragmentStart = isComment(node) && node.data === '['
     const onMismatch = () =>

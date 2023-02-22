@@ -1338,13 +1338,15 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `hydrate`)
             }
-            // TODO:bwsy
+
             hydrateNode!(
               el as Node,
               instance.subTree,
               instance,
               parentSuspense,
-              null
+              null,
+              false,
+              !!(instance.props && instance.props.lazy)
             )
             if (__DEV__) {
               endMeasure(instance, `hydrate`)
@@ -1441,6 +1443,7 @@ function baseCreateRenderer(
         // #2458: deference mount-only object parameters to prevent memleaks
         initialVNode = container = anchor = null as any
       } else {
+        // TODO:bwsy
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)

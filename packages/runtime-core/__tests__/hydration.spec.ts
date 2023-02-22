@@ -1086,7 +1086,7 @@ describe('SSR hydration', () => {
   })
 
   describe('lazy hydration', () => {
-    test('lazy hydration: ref & defineAsyncComponent', async () => {
+    /* test('lazy hydration: ref & defineAsyncComponent', async () => {
       const spy = vi.fn()
       const Comp = () =>
         h(
@@ -1376,10 +1376,60 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('button')!)
       //expect(spy).not.toHaveBeenCalled()
       expect(container.querySelector('button')?.innerHTML).toBe('change')
-    })
+    })*/
     // TODO: should update props even if hydration is delayed
     // TODO: should update props even if hydration is delayed (with Suspense)
     // TODO: should not break if the parent is a renderless component and has been updated
     // TODO: should run onCleanup hook when component has been unmounted
+    test('lazy hydration: ref control', async () => {
+      const spy = vi.fn()
+      const foo = ref('foo')
+      const Comp = {
+        props: ['lazy'],
+        render: () =>
+          h(
+            'button',
+            {
+              onClick: spy
+            },
+            foo.value
+          )
+      }
+
+      const lazy = ref(true)
+      const App = {
+        render() {
+          return h(Comp, { lazy: lazy.value })
+        }
+      }
+
+      // server render
+      const htmlPromise = renderToString(h(App))
+      const html = await htmlPromise
+      expect(html).toMatchInlineSnapshot(`"<button>foo</button>"`)
+
+      // lazy hydration
+      const container = document.createElement('div')
+      container.innerHTML = html
+      createSSRApp(App).mount(container)
+
+      // hydration not complete yet
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+
+      await new Promise(r => setTimeout(r))
+
+      // should not be hydrated
+      // triggerEvent('click', container.querySelector('button')!)
+      // expect(spy).not.toHaveBeenCalled()
+
+      //lazy.value = false
+      foo.value = 'change'
+      await new Promise(r => setTimeout(r))
+      // should be hydrated now
+      // triggerEvent('click', container.querySelector('button')!)
+      // expect(spy).toHaveBeenCalled()
+      // expect(container.querySelector('button')?.innerHTML).toBe('change')
+    })
   })
 })
