@@ -1339,7 +1339,6 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `hydrate`)
             }
-
             hydrateNode!(
               el as Node,
               instance.subTree,
@@ -1493,21 +1492,6 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `patch`)
         }
-        // TODO:bwsy 应该水合 且lazy标志为false
-        if (instance.shouldHydrate && instance.props && !instance.props.lazy) {
-          !instance.isUnmounted &&
-            hydrateNode!(
-              instance.vnode.el as Node,
-              prevTree,
-              instance,
-              parentSuspense,
-              null,
-              false,
-              !!(instance.props && instance.props.lazy)
-            )
-        }
-        // TODO:bwsy 説明需要水合，但還沒水合，這裏阻止它 patch
-        // if(instance.shouldHydrate) return
         patch(
           prevTree,
           nextTree,
@@ -1519,7 +1503,6 @@ function baseCreateRenderer(
           parentSuspense,
           isSVG
         )
-
         if (__DEV__) {
           endMeasure(instance, `patch`)
         }
