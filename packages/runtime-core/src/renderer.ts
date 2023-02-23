@@ -1507,7 +1507,7 @@ function baseCreateRenderer(
             )
         }
         // TODO:bwsy 説明需要水合，但還沒水合，這裏阻止它 patch
-        //if(prevTree.shouldHydrate) return
+        // if(instance.shouldHydrate) return
         patch(
           prevTree,
           nextTree,
