@@ -95,14 +95,11 @@ export function createHydrationFunctions(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized = false,
-    lazy = false
+    isLazy = false, // 懒水合模式下，你无法保证水合发生时，虚拟 dom 与 真实 dom 是完全对应的，因此
+    // 懒水合时，如果出现虚拟 dom 与 真实 dom 不匹配，则以虚拟 dom 优先
   ): Node | null => {
-    if (lazy) {
-      vnode.el = node
-      return node
-    }
+    let nextNode: Node | null = null
     parentComponent && (parentComponent.shouldHydrate = false)
-    // TODO:bwsy
     const isFragmentStart = isComment(node) && node.data === '['
     const onMismatch = () =>
       handleMismatch(
@@ -111,7 +108,8 @@ export function createHydrationFunctions(
         parentComponent,
         parentSuspense,
         slotScopeIds,
-        isFragmentStart
+        isFragmentStart,
+        isLazy
       )
 
     const { type, ref, shapeFlag, patchFlag } = vnode
@@ -123,7 +121,6 @@ export function createHydrationFunctions(
       vnode.dynamicChildren = null
     }
 
-    let nextNode: Node | null = null
     switch (type) {
       case Text:
         if (domType !== DOMNodeTypes.TEXT) {
@@ -138,7 +135,7 @@ export function createHydrationFunctions(
         } else {
           if ((node as Text).data !== vnode.children) {
             hasMismatch = true
-            __DEV__ &&
+            __DEV__ && !isLazy &&
               warn(
                 `Hydration text mismatch:` +
                   `\n- Client: ${JSON.stringify((node as Text).data)}` +
@@ -195,7 +192,7 @@ export function createHydrationFunctions(
             parentSuspense,
             slotScopeIds,
             optimized,
-            lazy
+            isLazy
           )
         }
         break
@@ -215,7 +212,7 @@ export function createHydrationFunctions(
               parentSuspense,
               slotScopeIds,
               optimized,
-              lazy
+              isLazy
             )
           }
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
@@ -281,7 +278,7 @@ export function createHydrationFunctions(
               optimized,
               rendererInternals,
               hydrateChildren,
-              lazy
+              isLazy,
             )
           }
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
@@ -295,9 +292,9 @@ export function createHydrationFunctions(
             optimized,
             rendererInternals,
             hydrateNode,
-            lazy
+            isLazy,
           )
-        } else if (__DEV__) {
+        } else if (__DEV__ && !isLazy) {
           warn('Invalid HostVNode type:', type, `(${typeof type})`)
         }
     }
@@ -316,7 +313,7 @@ export function createHydrationFunctions(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized: boolean,
-    lazy: boolean
+    isLazy = false,
   ) => {
     optimized = optimized || !!vnode.dynamicChildren
     const { type, props, patchFlag, shapeFlag, dirs } = vnode
@@ -394,12 +391,12 @@ export function createHydrationFunctions(
           parentSuspense,
           slotScopeIds,
           optimized,
-          lazy
+          isLazy
         )
         let hasWarned = false
         while (next) {
           hasMismatch = true
-          if (__DEV__ && !hasWarned) {
+          if (__DEV__ && !hasWarned && !isLazy) {
             warn(
               `Hydration children mismatch in <${vnode.type as string}>: ` +
                 `server rendered element contains more child nodes than client vdom.`
@@ -413,8 +410,9 @@ export function createHydrationFunctions(
         }
       } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
         if (el.textContent !== vnode.children) {
+          debugger
           hasMismatch = true
-          __DEV__ &&
+          __DEV__ && !isLazy &&
             warn(
               `Hydration text content mismatch in <${
                 vnode.type as string
@@ -437,7 +435,7 @@ export function createHydrationFunctions(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized: boolean,
-    lazy: boolean
+    isLazy: boolean,
   ): Node | null => {
     optimized = optimized || !!parentVNode.dynamicChildren
     const children = parentVNode.children as VNode[]
@@ -455,13 +453,13 @@ export function createHydrationFunctions(
           parentSuspense,
           slotScopeIds,
           optimized,
-          lazy
+          isLazy,
         )
       } else if (vnode.type === Text && !vnode.children) {
         continue
       } else {
         hasMismatch = true
-        if (__DEV__ && !hasWarned) {
+        if (__DEV__ && !hasWarned && !isLazy) {
           warn(
             `Hydration children mismatch in <${container.tagName.toLowerCase()}>: ` +
               `server rendered element contains fewer child nodes than client vdom.`
@@ -491,7 +489,7 @@ export function createHydrationFunctions(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized: boolean,
-    lazy: boolean
+    isLazy: boolean
   ) => {
     const { slotScopeIds: fragmentSlotScopeIds } = vnode
     if (fragmentSlotScopeIds) {
@@ -509,7 +507,7 @@ export function createHydrationFunctions(
       parentSuspense,
       slotScopeIds,
       optimized,
-      lazy
+      isLazy
     )
     if (next && isComment(next) && next.data === ']') {
       return nextSibling((vnode.anchor = next))
@@ -529,10 +527,11 @@ export function createHydrationFunctions(
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
-    isFragment: boolean
+    isFragment: boolean,
+    isLazy: boolean
   ): Node | null => {
     hasMismatch = true
-    __DEV__ &&
+    __DEV__ && !isLazy &&
       warn(
         `Hydration node mismatch:\n- Client vnode:`,
         vnode.type,

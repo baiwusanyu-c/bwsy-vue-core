@@ -330,9 +330,9 @@ function hydrateTeleport(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized: boolean,
-    lazy: boolean
+    isLazy: boolean,
   ) => Node | null,
-  lazy: boolean
+  isLazy: boolean,
 ): Node | null {
   const target = (vnode.target = resolveTarget<Element>(
     vnode.props,
@@ -353,7 +353,7 @@ function hydrateTeleport(
           parentSuspense,
           slotScopeIds,
           optimized,
-          lazy
+          isLazy
         )
         vnode.targetAnchor = targetNode
       } else {
@@ -385,7 +385,7 @@ function hydrateTeleport(
           parentSuspense,
           slotScopeIds,
           optimized,
-          lazy
+          isLazy
         )
       }
     }

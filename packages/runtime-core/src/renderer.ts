@@ -1339,20 +1339,20 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `hydrate`)
             }
+            // TODO: bwsy, 需要懒水合，就直接返回
+            if(!!(instance.props && instance.props.lazy)) return;
             hydrateNode!(
               el as Node,
               instance.subTree,
               instance,
               parentSuspense,
               null,
-              false,
-              !!(instance.props && instance.props.lazy)
+              false
             )
             if (__DEV__) {
               endMeasure(instance, `hydrate`)
             }
           }
-
           if (isAsyncWrapperVNode) {
             ;(initialVNode.type as ComponentOptions).__asyncLoader!().then(
               // note: we are moving the render call into an async callback,
@@ -1491,6 +1491,24 @@ function baseCreateRenderer(
 
         if (__DEV__) {
           startMeasure(instance, `patch`)
+        }
+        // TODO:bwsy 应该水合 且lazy标志为false
+        if (instance.shouldHydrate && instance.props && !instance.props.lazy) {
+          // instance lazy 发生变化，触发懒水合流程
+          !instance.isUnmounted &&
+            hydrateNode!(
+              instance.vnode.el as Node,
+              prevTree,
+              instance,
+              parentSuspense,
+              null,
+              false,
+              true // 标记正在使用懒水合
+            )
+        }
+        // TODO:bwsy 説明需要水合，但還沒水合，這裏阻止它 patch
+        if(instance.shouldHydrate) {
+          return
         }
         patch(
           prevTree,
@@ -2315,7 +2333,7 @@ function baseCreateRenderer(
     if (__FEATURE_SUSPENSE__ && vnode.shapeFlag & ShapeFlags.SUSPENSE) {
       return vnode.suspense!.next()
     }
-    return hostNextSibling((vnode.anchor || vnode.el)!)
+    return (vnode.anchor || vnode.el) ? hostNextSibling((vnode.anchor || vnode.el)!) : null
   }
 
   const render: RootRenderFunction = (vnode, container, isSVG) => {
