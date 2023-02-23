@@ -375,6 +375,10 @@ export interface ComponentInternalInstance {
    * @internal
    */
   asyncResolved: boolean
+  /**
+   * @internal
+   */
+  shouldHydrate?: boolean
 
   // lifecycle
   isMounted: boolean
