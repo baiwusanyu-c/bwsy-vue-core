@@ -95,8 +95,9 @@ export function createHydrationFunctions(
     parentSuspense: SuspenseBoundary | null,
     slotScopeIds: string[] | null,
     optimized = false,
-    isLazy = false, // 懒水合模式下，你无法保证水合发生时，虚拟 dom 与 真实 dom 是完全对应的，因此
-    // 懒水合时，如果出现虚拟 dom 与 真实 dom 不匹配，则以虚拟 dom 优先
+    isLazy = false,
+    // TODO:bwsy 懒水合模式下，你无法保证水合发生时，虚拟 dom 与 真实 dom 是完全对应的，因此
+    // TODO:bwsy 懒水合时，如果出现虚拟 dom 与 真实 dom 不匹配，则以虚拟 dom 优先
   ): Node | null => {
     let nextNode: Node | null = null
     parentComponent && (parentComponent.shouldHydrate = false)
@@ -410,7 +411,6 @@ export function createHydrationFunctions(
         }
       } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
         if (el.textContent !== vnode.children) {
-          debugger
           hasMismatch = true
           __DEV__ && !isLazy &&
             warn(
