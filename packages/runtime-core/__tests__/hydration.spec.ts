@@ -1380,7 +1380,6 @@ describe('SSR hydration', () => {
       expect(container.querySelector('button')?.innerHTML).toBe('change')
     })*/
 
-    // TODO: should update props even if hydration is delayed (with Suspense)
     // TODO: should not break if the parent is a renderless component and has been updated
     // TODO: should run onCleanup hook when component has been unmounted
     test('lazy hydration: can update components after hydration is complete', async () => {
@@ -1428,20 +1427,20 @@ describe('SSR hydration', () => {
       await new Promise(r => setTimeout(r))
 
       // updated props
-     foo.value = 'change'
-     await nextTick()
-     // should not be hydrated
-     triggerEvent('click', container.querySelector('button')!)
-     expect(spy).not.toHaveBeenCalled()
-     expect(lazyCompInstance!.props.foo).toBe('change')
-     expect(container.querySelector('button')?.innerHTML).toBe('foo')
+      foo.value = 'change'
+      await nextTick()
+      // should not be hydrated
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+      expect(lazyCompInstance!.props.foo).toBe('change')
+      expect(container.querySelector('button')?.innerHTML).toBe('foo')
 
-     lazy.value = false
-     await new Promise(r => setTimeout(r))
-     triggerEvent('click', container.querySelector('button')!)
-     expect(spy).toHaveBeenCalled()
-     expect(container.querySelector('button')?.innerHTML).toBe('change')
-     expect(lazyCompInstance!.props.foo).toBe('change')
+      lazy.value = false
+      await new Promise(r => setTimeout(r))
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).toHaveBeenCalled()
+      expect(container.querySelector('button')?.innerHTML).toBe('change')
+      expect(lazyCompInstance!.props.foo).toBe('change')
     })
     test('lazy hydration: should update props even if hydration is delayed', async () => {
       const spy = vi.fn()
@@ -1517,9 +1516,13 @@ describe('SSR hydration', () => {
       const lazy = ref(true)
       const App = {
         render() {
-          return h(Suspense, {},{
-            default: ()=>h(Comp, { lazy: lazy.value, foo: foo.value })
-          });
+          return h(
+            Suspense,
+            {},
+            {
+              default: () => h(Comp, { lazy: lazy.value, foo: foo.value })
+            }
+          )
         }
       }
 
