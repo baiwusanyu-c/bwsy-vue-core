@@ -1465,7 +1465,8 @@ describe('SSR hydration', () => {
       const lazy = ref(true)
       const App = {
         render() {
-          return h(Comp, { lazy: lazy.value, foo: foo.value })
+          // TODO 考虑使用 类似 key 的方式处理lazy
+          return h(Comp, { lazy: lazy.value, foo: foo.value, key: 'chz' })
         }
       }
 

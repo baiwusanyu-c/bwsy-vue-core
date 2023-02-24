@@ -1493,6 +1493,7 @@ function baseCreateRenderer(
           startMeasure(instance, `patch`)
         }
         // TODO:bwsy 应该水合 且lazy标志为false
+        debugger
         if (instance.shouldHydrate && instance.props && !instance.props.lazy) {
           // instance lazy 发生变化，触发懒水合流程
           !instance.isUnmounted &&
