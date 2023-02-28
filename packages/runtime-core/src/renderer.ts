@@ -1331,6 +1331,7 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `render`)
             }
+            // TODO: bwsy, 需要懒水合，就直接返回
             instance.subTree = renderComponentRoot(instance)
             instance.shouldHydrate = true
             if (__DEV__) {
@@ -1339,7 +1340,6 @@ function baseCreateRenderer(
             if (__DEV__) {
               startMeasure(instance, `hydrate`)
             }
-            // TODO: bwsy, 需要懒水合，就直接返回
             if(!!(instance.props && instance.props.lazy)) return;
             hydrateNode!(
               el as Node,

@@ -1466,7 +1466,7 @@ describe('SSR hydration', () => {
       const App = {
         render() {
           // TODO 考虑使用 类似 key 的方式处理lazy
-          return h(Comp, { lazy: lazy.value, foo: foo.value, key: 'chz' })
+          return h(Comp, { lazy: lazy.value, foo: foo.value })
         }
       }
 
@@ -1551,5 +1551,60 @@ describe('SSR hydration', () => {
       expect(container.querySelector('button')?.innerHTML).toBe('foo')
       expect(lazyCompInstance!.props.foo).toBe('change')
     })
+    /*test('key', async () => {
+      const spy = vi.fn()
+      const foo = ref('foo')
+      const Comp = {
+        name: 'comp',
+        props: ['lazy','foo'],
+        setup(props: any) {
+          return function () {
+            return h(
+              'button',
+              {
+                onClick: spy
+              },
+              props.foo
+            )
+          }
+        }
+      }
+
+      const lazy = ref(true)
+      const App = {
+        name: 'App',
+        render() {
+          return h(Comp, { lazy: lazy.value, key: foo.value, foo: foo.value })
+        }
+      }
+
+      // server render
+      const htmlPromise = renderToString(h(App))
+      const html = await htmlPromise
+      expect(html).toMatchInlineSnapshot(`"<button>foo</button>"`)
+
+      // lazy hydration
+      const container = document.createElement('div')
+      container.innerHTML = html
+      createSSRApp(App).mount(container)
+
+      // hydration not complete yet
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+      await nextTick()
+
+      // updated props
+      debugger
+      foo.value = 'change'
+      await nextTick()
+      // should not be hydrated
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).not.toHaveBeenCalled()
+      debugger
+      lazy.value = false
+      await nextTick()
+      triggerEvent('click', container.querySelector('button')!)
+      expect(spy).toHaveBeenCalled()
+    })*/
   })
 })
