@@ -1088,7 +1088,7 @@ describe('SSR hydration', () => {
   })
 
   describe('lazy hydration', () => {
-    /* test('lazy hydration: ref & defineAsyncComponent', async () => {
+    test('lazy hydration with defineAsyncComponent', async () => {
       const spy = vi.fn()
       const Comp = () =>
         h(
@@ -1153,7 +1153,7 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).toHaveBeenCalled()
     })
-    test('lazy hydration: ref & nested defineAsyncComponent', async () => {
+    test('lazy hydration with nested defineAsyncComponent', async () => {
       const spy = vi.fn()
       const Comp2 = () =>
         h(
@@ -1239,7 +1239,7 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('div')!)
       expect(spy).toBeCalledTimes(2)
     })
-    test('lazy hydration: ref & defineAsyncComponent & Suspense', async () => {
+    test('lazy hydration with defineAsyncComponent & Suspense', async () => {
       const spy = vi.fn()
       const Comp = () =>
         h(
@@ -1310,18 +1310,23 @@ describe('SSR hydration', () => {
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).toHaveBeenCalled()
     })
-    test('lazy hydration: should update props', async () => {
+    test('should update props with defineAsyncComponent', async () => {
       const spy = vi.fn()
       const foo = ref('foo')
+      let lazyCompInstance: ComponentInternalInstance | null
       const Comp = {
-        render() {
-          return h(
-            'button',
-            {
-              onClick: spy
-            },
-            foo.value
-          )
+        props: ['lazy', 'foo'],
+        setup(props: any) {
+          lazyCompInstance = getCurrentInstance()
+          return function () {
+            return h(
+              'button',
+              {
+                onClick: spy
+              },
+              props.foo
+            )
+          }
         }
       }
 
@@ -1334,7 +1339,7 @@ describe('SSR hydration', () => {
       )
       const App = {
         render() {
-          return h(AsyncComp, { lazy: true })
+          return h(AsyncComp, { lazy: true, foo: foo.value })
         }
       }
 
@@ -1342,9 +1347,7 @@ describe('SSR hydration', () => {
       const htmlPromise = renderToString(h(App))
       serverResolve(Comp)
       const html = await htmlPromise
-      // expect(html).toMatchInlineSnapshot(
-      //   `"<button lazy=\\"true\\">foo</button>"`
-      // )
+      expect(html).toMatchInlineSnapshot(`"<button>foo</button>"`)
 
       // lazy hydration
       let clientResolve: any
@@ -1369,20 +1372,17 @@ describe('SSR hydration', () => {
 
       // should not be hydrated
       triggerEvent('click', container.querySelector('button')!)
-      //expect(spy).not.toHaveBeenCalled()
+      expect(spy).not.toHaveBeenCalled()
 
       foo.value = 'change'
       await new Promise(r => setTimeout(r))
-      await nextTick()
       // should be hydrated now
       triggerEvent('click', container.querySelector('button')!)
-      //expect(spy).not.toHaveBeenCalled()
-      expect(container.querySelector('button')?.innerHTML).toBe('change')
-    })*/
-
-    // TODO: should not break if the parent is a renderless component and has been updated
-    // TODO: should run onCleanup hook when component has been unmounted
-    test('lazy hydration: can update components after hydration is complete', async () => {
+      expect(spy).not.toHaveBeenCalled()
+      expect(container.querySelector('button')?.innerHTML).toBe('foo')
+      expect(lazyCompInstance!.props.foo).toBe('change')
+    })
+    test('can update components after hydration is complete', async () => {
       const spy = vi.fn()
       const foo = ref('foo')
       let lazyCompInstance: ComponentInternalInstance | null
@@ -1424,7 +1424,7 @@ describe('SSR hydration', () => {
       // hydration not complete yet
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).not.toHaveBeenCalled()
-      await new Promise(r => setTimeout(r))
+      await nextTick()
 
       // updated props
       foo.value = 'change'
@@ -1436,13 +1436,13 @@ describe('SSR hydration', () => {
       expect(container.querySelector('button')?.innerHTML).toBe('foo')
 
       lazy.value = false
-      await new Promise(r => setTimeout(r))
+      await nextTick()
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).toHaveBeenCalled()
       expect(container.querySelector('button')?.innerHTML).toBe('change')
       expect(lazyCompInstance!.props.foo).toBe('change')
     })
-    test('lazy hydration: should update props even if hydration is delayed', async () => {
+    test('should update props even if hydration is delayed', async () => {
       const spy = vi.fn()
       const foo = ref('foo')
       let lazyCompInstance: ComponentInternalInstance | null
@@ -1483,18 +1483,18 @@ describe('SSR hydration', () => {
       // hydration not complete yet
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).not.toHaveBeenCalled()
-      await new Promise(r => setTimeout(r))
+      await nextTick()
 
       // should not be hydrated
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).not.toHaveBeenCalled()
       // updated props
       foo.value = 'change'
-      await new Promise(r => setTimeout(r))
+      await nextTick()
       expect(container.querySelector('button')?.innerHTML).toBe('foo')
       expect(lazyCompInstance!.props.foo).toBe('change')
     })
-    test('lazy hydration: should update props even if hydration is delayed (with Suspense)', async () => {
+    test('should update props even if hydration is delayed (with Suspense)', async () => {
       const spy = vi.fn()
       const foo = ref('foo')
       let lazyCompInstance: ComponentInternalInstance | null
@@ -1540,14 +1540,14 @@ describe('SSR hydration', () => {
       // hydration not complete yet
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).not.toHaveBeenCalled()
-      await new Promise(r => setTimeout(r))
+      await nextTick()
 
       // should not be hydrated
       triggerEvent('click', container.querySelector('button')!)
       expect(spy).not.toHaveBeenCalled()
       // updated props
       foo.value = 'change'
-      await new Promise(r => setTimeout(r))
+      await nextTick()
       expect(container.querySelector('button')?.innerHTML).toBe('foo')
       expect(lazyCompInstance!.props.foo).toBe('change')
     })
