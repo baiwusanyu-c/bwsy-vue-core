@@ -115,6 +115,7 @@ class RefImpl<T = any> {
   }
 
   get value() {
+    debugger
     if (__DEV__) {
       this.dep.track({
         target: this,
@@ -122,12 +123,14 @@ class RefImpl<T = any> {
         key: 'value',
       })
     } else {
+      // bwsy：收集依赖
       this.dep.track()
     }
     return this._value
   }
 
   set value(newValue) {
+    debugger
     const oldValue = this._rawValue
     const useDirectValue =
       this.__v_isShallow || isShallow(newValue) || isReadonly(newValue)

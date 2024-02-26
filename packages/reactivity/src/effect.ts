@@ -160,11 +160,14 @@ export class ReactiveEffect<T = any>
   run() {
     // TODO cleanupEffect
 
+    // bwsy：可能被错误清理，这要再次运行一下 fn
     if (!(this.flags & EffectFlags.ACTIVE)) {
       // stopped during cleanup
       return this.fn()
     }
 
+    // bwsy：处理嵌套场景，先处理深层次的 effect
+    // 标记 当前 effect 对象正在执行 fn 函数
     this.flags |= EffectFlags.RUNNING
     prepareDeps(this)
     const prevEffect = activeSub
@@ -190,6 +193,11 @@ export class ReactiveEffect<T = any>
 
   stop() {
     if (this.flags & EffectFlags.ACTIVE) {
+      // bwsy：二维的双向链结构，effect实例对象的 deps 是一个link 节点，
+      // 每一个 link 节点在 x 方向上与上下一个 link（nextSub，prevSub）组成sub双向链
+      // 在y轴方向上与上下 link 组成 dep 双向链
+      //  停止收集时
+      // 遍历这个 link 节点 的 dep 方向链，将这个 link 节点在其 sub 方向链中删除
       for (let link = this.deps; link; link = link.nextDep) {
         removeSub(link)
       }
@@ -265,8 +273,11 @@ export function endBatch() {
 }
 
 function prepareDeps(sub: Subscriber) {
+  debugger
   // Prepare deps for tracking, starting from the head
+  //  从头部开始，在 deps 方向重置 link 节点版本
   for (let link = sub.deps; link; link = link.nextDep) {
+    debugger
     // set all previous deps' (if any) version to -1 so that we can track
     // which ones are unused after the run
     link.version = -1
@@ -278,6 +289,9 @@ function prepareDeps(sub: Subscriber) {
 
 function cleanupDeps(sub: Subscriber) {
   // Cleanup unsued deps
+  // bwsy：当一个 effect 执行完它的 fn，从尾部开始遍历
+  // 如果链上 link 的版本还会 -1 说明没被访问，则将其从
+  // 在 dep 方向和 sub 方向进行删除
   let head
   let tail = sub.depsTail
   for (let link = tail; link; link = link.prevDep) {
@@ -306,6 +320,7 @@ function isDirty(sub: Subscriber): boolean {
   for (let link = sub.deps; link; link = link.nextDep) {
     if (
       link.dep.version !== link.version ||
+        // bwsy: 注意 refreshComputed 会修改 link.dep.version
       (link.dep.computed && refreshComputed(link.dep.computed) === false) ||
       link.dep.version !== link.version
     ) {
@@ -428,6 +443,7 @@ export function effect<T = any>(
   }
 
   const e = new ReactiveEffect(fn)
+  debugger
   if (options) {
     extend(e, options)
   }

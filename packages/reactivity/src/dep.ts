@@ -15,6 +15,7 @@ import {
  * Incremented every time a reactive change happens
  * This is used to give computed a fast path to avoid re-compute when nothing
  * has changed.
+ * bwsy: 每次发生反应性更改时递增 这用于为计算提供快速路径，以避免在没有任何更改时重新计算。
  */
 export let globalVersion = 0
 
@@ -25,21 +26,26 @@ export class Dep {
   version = 0
   /**
    * Link between this dep and the current active effect
+   * bwsy:此 dep 对象与当前活动的 effect 之间的链接，
    */
   activeLink?: Link = undefined
   /**
    * Doubly linked list representing the subscribing effects (tail)
+   * bwsy:订阅者双链
    */
   subs?: Link = undefined
 
   constructor(public computed?: ComputedRefImpl) {}
 
   track(debugInfo?: DebuggerEventExtraInfo): Link | undefined {
+    debugger
     if (!activeSub || !shouldTrack) {
       return
     }
-
+    // bwsy：初始化时 undefined
     let link = this.activeLink
+    // bwsy：初始化 activeLink
+    // bwsy：activeSub 在 effect 的 run 方法中设置了的
     if (link === undefined || link.sub !== activeSub) {
       link = this.activeLink = {
         dep: this,
@@ -53,6 +59,12 @@ export class Dep {
       }
 
       // add the link to the activeEffect as a dep (as tail)
+      // bwsy:初始化时 activeSub.deps = activeSub.depsTail
+      // activeSub.deps = link
+      // 此时建立了 effect 对象 与 dep 的联系，即存储在
+      // deps 中。
+      // 对于 dep 对象，可以通过 Link 访问自己，可以通过 sub 访问 effect 对象
+      // 对于 dep 对象，可以通过 deps 访问到 Link，进而访问到 dep 对象 和自己
       if (!activeSub.deps) {
         activeSub.deps = activeSub.depsTail = link
       } else {
@@ -61,6 +73,7 @@ export class Dep {
         activeSub.depsTail = link
       }
 
+      //bwsy： 初始化 7 & 4 =》 4， 初始化 将 Link 对象存储都 dep 对象的 subs 属性中
       if (activeSub.flags & EffectFlags.TRACKING) {
         addSub(link)
       }
@@ -71,6 +84,8 @@ export class Dep {
       // If this dep has a next, it means it's not at the tail - move it to the
       // tail. This ensures the effect's dep list is in the order they are
       // accessed during evaluation.
+      // bwsy:如果这个 dep 有下一个，则意味着它不在尾部 - 将其移动到尾部。
+      // 这可确保 effect 的 dep 列表按照它们在评估期间访问的顺序排列。
       if (link.nextDep) {
         const next = link.nextDep
         next.prevDep = link.prevDep
@@ -90,6 +105,7 @@ export class Dep {
       }
     }
 
+    // bwsy:debugger hook api
     if (__DEV__ && activeSub.onTrack) {
       activeSub.onTrack(
         extend(
