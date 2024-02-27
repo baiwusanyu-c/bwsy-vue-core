@@ -34,6 +34,7 @@ describe('reactivity/ref', () => {
     effect(fn)
     expect(fn).toHaveBeenCalledTimes(1)
     expect(dummy).toBe(1)
+    debugger
     a.value = 2
     expect(fn).toHaveBeenCalledTimes(2)
     expect(dummy).toBe(2)

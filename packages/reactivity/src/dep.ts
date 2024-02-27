@@ -127,6 +127,7 @@ export class Dep {
   }
 
   notify(debugInfo?: DebuggerEventExtraInfo) {
+    debugger
     startBatch()
     try {
       for (let link = this.subs; link; link = link.prevSub) {

@@ -152,6 +152,9 @@ export class ReactiveEffect<T = any>
     }
     if (!(this.flags & EffectFlags.NOTIFIED)) {
       this.flags |= EffectFlags.NOTIFIED
+      // bwsy: 存储当前 effect 到 nextEffect
+      // 当一个响应式变量有多个依赖时， 从 dep 方向会顺着
+      // nextEffect 去执行副作用
       this.nextEffect = batchedEffect
       batchedEffect = this
     }
@@ -168,6 +171,7 @@ export class ReactiveEffect<T = any>
 
     // bwsy：处理嵌套场景，先处理深层次的 effect
     // 标记 当前 effect 对象正在执行 fn 函数
+    // 初始化 这里 flags 被设置成 7
     this.flags |= EffectFlags.RUNNING
     prepareDeps(this)
     const prevEffect = activeSub
@@ -176,6 +180,7 @@ export class ReactiveEffect<T = any>
     shouldTrack = true
 
     try {
+      debugger
       return this.fn()
     } finally {
       if (__DEV__ && activeSub !== this) {
@@ -188,6 +193,7 @@ export class ReactiveEffect<T = any>
       activeSub = prevEffect
       shouldTrack = prevShouldTrack
       this.flags &= ~EffectFlags.RUNNING
+      debugger
     }
   }
 
@@ -244,11 +250,16 @@ export function startBatch() {
  * @internal
  */
 export function endBatch() {
+  // bwsy: 减一层 batchDepth
   if (batchDepth > 1) {
     batchDepth--
     return
   }
 
+  // bwsy：顺着 effect 对象的 nextEffect 指针
+  // 挨个遍历 effect 对象，去触发依赖运行
+  // 这里是由响应式变量变化引起的，一个响应式变量
+  // 肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
   let error: unknown
   while (batchedEffect) {
     let e: ReactiveEffect | undefined = batchedEffect

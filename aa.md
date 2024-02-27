@@ -55,7 +55,7 @@ export interface Link {
    * - After the run, links with version -1 (that were never used) are cleaned
    *   up
    *   在 effect 运行前，所有'之前的'依赖链版本会重置为 - 1，
-   *   在运行期间，一个链的版本会随着dep依赖源的方法2⃣同步
+   *   在运行期间，一个链的版本会随着dep依赖源的访问同步
    *   在运行之后，所有版本为 - 1 的依赖会被清理，即没有被访问
    */
   version: number
@@ -109,7 +109,7 @@ const a = ref(1), ref 内部会创建一个 ref 实例对象 RefImpl， RefImpl 
 
 ```
 当设置 a 时，即触发 RefImpl 上的 set 方法，其内部会 触发 dep 的 this.dep.trigger() 方法进行触发
-最终效果时自动执行了 fn。
+最终效果时自动执行了 fn。  
 那么我们来看一下 dep 是什么东西。
 当ref构造函数执行时，实际上 dep已经初始化了，这个 dep 对象包含这些内容
  ````
@@ -124,7 +124,7 @@ notify: () => {}
 但这只是初始化，其真正的数据结构（二维双向链表）还没有建立，但是当 effect 执行 fn 触发 ref 的 get 方法时，
 在执行完this.dep.track()方法后, this.dep 却发生了变化，那我们看看从 effect 执行，到 this.dep.track() 执行之间，
 究竟做了什么。
-执行effect，这个函数其实没有太多变化，重点在于  ReactiveEffect 对象的变化，它新增了这几个属性
+执行effect，这个函数其实没有太多变化，那我们进一步观察 ReactiveEffect 对象的改动变化，它新增了这几个属性  
 ```typescript
 class ReactiveEffect {
     /**
@@ -146,7 +146,7 @@ class ReactiveEffect {
 }
 ```
 从 effect 的逻辑中看出 在初始化 ReactiveEffect 对象时，构造函数并没有什么太多动作
-此时我们的到 effect 的属性为, 其中 flags 为 5 表示这个 ReactiveEffect 是活动的或正在追踪
+此时我们的到 effect 的属性如下, 其中 flags 为 5 表示这个 ReactiveEffect 是活动的或正在追踪
 ```typescript
 export enum EffectFlags {
     ACTIVE = 1 << 0,
@@ -175,7 +175,7 @@ const run = () => {
     }
 
     // TODO：作用待定，可能是 处理嵌套场景，先处理深层次的 effect
-    // 标记 当前 effect 对象正在执行 fn 函数
+    // 标记当前 effect 对象的flag，表示正在执行 fn 函数
     this.flags |= EffectFlags.RUNNING
     // TODO：作用待定
     // 准备 dep，初始化时，this.deps 是 undefined，
@@ -220,7 +220,8 @@ const track = (debugInfo) => {
         // 至此初始化，dep 对象 的 activeLink 属性包含了自身，以及对应的 effect 对象
         // TODO（具体怎么触发 sub）
         if (link === undefined || link.sub !== activeSub) {
-            link = this.activeLink = {
+            debugger
+          link = this.activeLink = {
                 dep: this,
                 sub: activeSub,
                 version: this.version,
@@ -232,10 +233,8 @@ const track = (debugInfo) => {
             }
 
             // add the link to the activeEffect as a dep (as tail)
-            // 初始化时 activeSub.deps = activeSub.depsTail
-            // activeSub.deps = link
-            // 此时建立了 effect 对象 与 dep 的联系，即存储在
-            // deps 中。
+            // 初始化时 activeSub.deps = activeSub.depsTail = link
+            // 此时建立了 effect 对象 与 dep 的联系，即存储在 deps 中。
             // 对于 dep 对象，可以通过 Link 访问自己，可以通过 sub 访问 effect 对象
             // 对于 dep 对象，可以通过 deps 访问到 Link，进而访问到 dep 对象 和自己
             if (!activeSub.deps) {
@@ -301,3 +300,102 @@ const track = (debugInfo) => {
 通过 Link 对象之间 nextDep 、prevDep 、nextSub 、prevSub 指针相互链接，最终形成一个矩阵，即所谓二维双向链表  
 
 ## ref trigger 流程
+还是上文的测试用例，我们触发 a.value = 1, 会触发 ref 对象 的 set 方法，这里面变动不大，主要是调用了 this.dep.trigger()，
+那么看看 this.dep.trigger 的内容。
+```
+在 effect 运行前，所有'之前的'依赖链版本会重置为 - 1，
+在运行期间，一个链的版本会随着dep依赖源的访问同步
+在运行之后，所有版本为 - 1 的依赖会被清理，即没有被访问
+```
+```typescript
+const trigger = (debugInfo) =>  {
+  // 更新 dep 对象版本
+  this.version++
+  // 更新全局版本 （每次发生反应性更改时递增 ，TODO:这用于为计算提供快速路径，以避免在没有任何更改时重新计算。）
+  globalVersion++
+  // 派发更新通知，去执行回调
+  this.notify(debugInfo)
+}
+```
+接下来 看看 notify 的内容
+
+```typescript
+const trigger = (debugInfo) =>  {
+  // TODO
+  startBatch()
+  try {
+    // 循环这个 dep 对象上的 subs，通过 link 上的 prevSub，去遍历
+    // dep 方向上 这个 dep 对象对应的 link 之前的链节点
+    for (let link = this.subs; link; link = link.prevSub) {
+      if (
+        __DEV__ &&
+        link.sub.onTrigger &&
+        !(link.sub.flags & EffectFlags.NOTIFIED)
+      ) {
+        link.sub.onTrigger(
+          extend(
+            {
+              effect: link.sub,
+            },
+            debugInfo,
+          ),
+        )
+      }
+      // 挨个调用 Link 节点上的 sub（订阅者） 的 notify 方法
+      link.sub.notify()
+    }
+  } finally {
+    // TODO
+    endBatch()
+  }
+}
+```
+// 此时 this.flag 已经被复位为 5 了（this.flags &= ~EffectFlags.RUNNING）
+我们暂时忽略批处理内容，可以看到其实核心就是遍历了这个 dep 对象上 link 节点这个链的之前所有节点，并调用了对应的
+effect对象的 notify 方法，
+notify 方法此时判断这个 effect 没有被派发过，则设置 batchedEffect 为当前 effect，并标记为 NOTIFIED，
+那么 我们必须看批处理逻辑了，因为发现这里没有触发依赖运行。
+先看 batchStart，它累加了一下批处理深度 batchDepth。
+然后看 batchEnd，
+```typescript
+export function endBatch() {
+  // bwsy: 减一层 batchDepth,
+  // 只有到第一层时才往下走，触发trigger
+  if (batchDepth > 1) {
+    batchDepth--
+    return
+  }
+
+  // 顺着 effect 对象的 nextEffect 指针
+  // 挨个遍历 effect 对象，去触发依赖运行
+  // 这里是由响应式变量变化引起的，一个响应式变量
+  // 肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
+  let error: unknown
+  while (batchedEffect) {
+    let e: ReactiveEffect | undefined = batchedEffect
+    batchedEffect = undefined
+    while (e) {
+      const next: ReactiveEffect | undefined = e.nextEffect
+      e.nextEffect = undefined
+      e.flags &= ~EffectFlags.NOTIFIED
+      if (e.flags & EffectFlags.ACTIVE) {
+        try {
+          e.trigger()
+        } catch (err) {
+          if (!error) error = err
+        }
+      }
+      e = next
+    }
+  }
+
+  batchDepth--
+  if (error) throw error
+}
+```
+顺着 effect 对象的 nextEffect 指针
+挨个遍历 effect 对象，去触发依赖运行
+这里是由响应式变量变化引起的，一个响应式变量
+肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
+// 简单的流程梳理
+// 复杂细节
