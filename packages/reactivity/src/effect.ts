@@ -189,6 +189,7 @@ export class ReactiveEffect<T = any>
             'this is likely a Vue internal bug.',
         )
       }
+      // 依赖清除
       cleanupDeps(this)
       activeSub = prevEffect
       shouldTrack = prevShouldTrack
@@ -260,6 +261,7 @@ export function endBatch() {
   // 挨个遍历 effect 对象，去触发依赖运行
   // 这里是由响应式变量变化引起的，一个响应式变量
   // 肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
+  // batchedEffect 在 effect 的 notify 中设置
   let error: unknown
   while (batchedEffect) {
     let e: ReactiveEffect | undefined = batchedEffect

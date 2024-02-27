@@ -295,9 +295,15 @@ const track = (debugInfo) => {
 然后使用 addSub 方法，将 Link 对象存储都 dep 对象的 subs 属性中。
 根据海老师的图示，可知所谓的二维双向链表之间的数据结构是指
 ![img.png](img.png)
-一维：即 dep 方向，链表从 dep 对象开始，节点存储在 subs 属性中，它存储的是 Link 对象  
-二维：即 sub 方向，其 sub 其本质是 ReactiveEffect 对象，链表从一个 ReactiveEffect 对象开始，节点存储存储在 deps 属性上  
-通过 Link 对象之间 nextDep 、prevDep 、nextSub 、prevSub 指针相互链接，最终形成一个矩阵，即所谓二维双向链表  
+一维：即 dep 方向，链表从 dep 对象开始，节点存储在 subs 属性中，它存储的是 Link 对象。
+二维：即 sub 方向，其 sub 其本质是 ReactiveEffect 对象，链表从一个 ReactiveEffect 对象开始，节点存储存储在 deps 属性上。
+换而言之每一个响应式变量，都有一个 dep 对象
+它的 subs 属性存储了一个Link，通过 Link 链接了另一个Link，形成一个维度的双向链表
+而每一个 ReactiveEffect 对象，有一个 deps 属性，里面存储的也是一个 Link，通过 Link 链接了另一个Link，
+二者之间使用的 Link 是相同的，即响应式对象和 ReactiveEffect 对象之间的桥梁 就是一个Link。
+通过 Link 对象之间 nextDep 、prevDep 、nextSub 、prevSub 指针相互链接，最终形成一个矩阵，即所谓二维双向链表
+当响应式对象变化时，通过链表可以访问到它所有的 ReactiveEffect 对象，进而进行副作用的执行，
+当访问到响应式对象时，通过链表也可以访问到这个副作用函数对应的 ReactiveEffect 对象上所有依赖，进而进行依赖追踪
 
 ## ref trigger 流程
 还是上文的测试用例，我们触发 a.value = 1, 会触发 ref 对象 的 set 方法，这里面变动不大，主要是调用了 this.dep.trigger()，
@@ -351,9 +357,10 @@ const trigger = (debugInfo) =>  {
 }
 ```
 // 此时 this.flag 已经被复位为 5 了（this.flags &= ~EffectFlags.RUNNING）
-我们暂时忽略批处理内容，可以看到其实核心就是遍历了这个 dep 对象上 link 节点这个链的之前所有节点，并调用了对应的
+我们暂时忽略批处理内容，可以看到其实核心就是遍历了这个 dep 对象上 link 节点这个链的所有节点，并调用了对应的
 effect对象的 notify 方法，
-notify 方法此时判断这个 effect 没有被派发过，则设置 batchedEffect 为当前 effect，并标记为 NOTIFIED，
+notify 方法此时判断这个 effect 没有被派发过，则设置 batchedEffect 为当前 effect，并标记为 NOTIFIED，这个过程中
+会使用 batchedEffect 建立这个依赖对应的 effect 与 effect 之间联系（一个依赖可能由多个副作用）
 那么 我们必须看批处理逻辑了，因为发现这里没有触发依赖运行。
 先看 batchStart，它累加了一下批处理深度 batchDepth。
 然后看 batchEnd，
@@ -393,10 +400,14 @@ export function endBatch() {
   if (error) throw error
 }
 ```
-顺着 effect 对象的 nextEffect 指针
+顺着 上一步设置的 effect 对象的 nextEffect 指针
 挨个遍历 effect 对象，去触发依赖运行
 这里是由响应式变量变化引起的，一个响应式变量
 肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
-// 再次触发流程
-// 简单的流程梳理
-// 复杂细节
+
+
+// 一个依赖 多个副作用
+should handle multiple effects
+should observe nested properties
+should observe multiple properties
+should allow nested effects
