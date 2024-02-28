@@ -286,11 +286,9 @@ export function endBatch() {
 }
 
 function prepareDeps(sub: Subscriber) {
-  debugger
   // Prepare deps for tracking, starting from the head
-  //  从头部开始，在 deps 方向重置 link 节点版本
+  //  trigger 时会进入循环 从头部开始，在 deps 方向重置 link 节点版本
   for (let link = sub.deps; link; link = link.nextDep) {
-    debugger
     // set all previous deps' (if any) version to -1 so that we can track
     // which ones are unused after the run
     link.version = -1

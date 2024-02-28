@@ -179,7 +179,7 @@ const run = () => {
     this.flags |= EffectFlags.RUNNING
     // TODO：作用待定
     // 准备 dep，初始化时，this.deps 是 undefined，
-    // 初始化时 prepareDeps 无用
+    // 初始化时 prepareDeps 无用，触发时
     prepareDeps(this)
     // TODO：作用待定
     // 缓存上一个 activeSub 和 shouldTrack
@@ -406,8 +406,53 @@ export function endBatch() {
 肯能存在多个依赖，对比海老师图的 dep方向，挨个触发 sub
 
 
-// 一个依赖 多个副作用
-should handle multiple effects
+### should handle multiple effects
+一个依赖，多个副作用
+```typescript
+it('should handle multiple effects', () => {
+  let dummy1, dummy2, dummy3
+  const counter = ref(0)
+  effect(() => (dummy1 = counter.value))
+  effect(() => (dummy2 = counter.value))
+  effect(() => (dummy3 = counter.value))
+
+  expect(dummy1).toBe(0)
+  expect(dummy2).toBe(0)
+  expect(dummy3).toBe(0)
+  counter.value = 1
+  expect(dummy1).toBe(1)
+  expect(dummy2).toBe(1)
+  expect(dummy3).toBe(1)
+})
+```
+此时 this 指向最后一个 ReactiveEffect
+this.deps.sub === this
+this.deps.prevSub.nextSub.sub === this.deps.sub
+this.deps.prevSub.sub === this.deps.prevSub.prevSub.nextSub.sub
+可以看到形成了一个链结构，
+在trigger时，这根据 prevSub 遍历这个链表，然后批处理指向副作用（构建了 nextEffect 链）
+
+### should observe multiple properties
+一个依赖，多个字段，一个副作用
+```typescript
+it('should observe multiple properties', () => {
+  let dummy
+  const counter = reactive({ num1: 0, num2: 0, num3: 0 })
+  effect(() => (dummy = counter.num1 + counter.num1 + counter.num2 + counter.num3))
+
+  expect(dummy).toBe(0)
+  counter.num1 = counter.num2 = 7
+  expect(dummy).toBe(21)
+})
+```
+先后访问依赖 num1 和 num2 和 num3，那么对应 ReactiveEffect 对象（sub方向）中存储的 deps是一个链， 
+它是第一个 Link 节点，depsTail是链的末尾节点
+通过访问属性可以得到 this.deps.nextDep.nextDep === this.depsTail
+而他们共用一个 sub（this.deps.sub === this， this.deps.nextDep.sub === this）
+
+
 should observe nested properties
-should observe multiple properties
 should allow nested effects
+// TODO：一个依赖 多个副作用
+// TODO: ref unit test
+// TODO: computed unit test
