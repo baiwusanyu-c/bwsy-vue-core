@@ -201,11 +201,15 @@ export interface ComponentOptionsBase<
   __asyncResolved?: ConcreteComponent
   /**
    * Exposed for lazy hydration
+   * TODO: bwsy 暴露懒水合方法
    * @internal
    */
   __asyncHydrate?: (
+    // TODO: bwsy 当前水合的 dom 元素
     el: Element,
+    // TODO: bwsy 当前水合的异步组件包裹的组件实例
     instance: ComponentInternalInstance,
+    // TODO: bwsy 执行子树水合方法 hydrateSubTree
     hydrate: () => void,
   ) => void
 

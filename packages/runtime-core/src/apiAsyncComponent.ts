@@ -31,6 +31,7 @@ export interface AsyncComponentOptions<T = any> {
   delay?: number
   timeout?: number
   suspensible?: boolean
+  // TODO: bwsy 懒水合策略钩子
   hydrate?: HydrationStrategy
   onError?: (
     error: Error,
@@ -56,6 +57,7 @@ export function defineAsyncComponent<
     loadingComponent,
     errorComponent,
     delay = 200,
+    // TODO: bwsy 获取原始组件对象的水合策略钩子方法
     hydrate: hydrateStrategy,
     timeout, // undefined = never times out
     suspensible = true,
@@ -120,11 +122,19 @@ export function defineAsyncComponent<
     name: 'AsyncComponentWrapper',
 
     __asyncLoader: load,
-
+    // TODO：bwsy 异步懒水合方法
     __asyncHydrate(el, instance, hydrate) {
+      // TODO: bwsy 如果用户传入了水合策略钩子方法，则执行水合钩子，反之则执行默认的水合方法 hydrate ,
+      //  hydrate 本质是 hydrateSubTree 方法，即去执行当前渲染的组件的子树组件水合
       const doHydrate = hydrateStrategy
         ? () => hydrateStrategy(hydrate, cb => forEachElement(el, cb))
         : hydrate
+
+      // TODO: bwsy 当 __asyncHydrate 执行时，组件没有被 resolve，则在 then 回调中执行水合
+      //  反之立即执行水合
+      //  !instance.isUnmounted && doHydrate() 这个逻辑原先是在
+      //  /Users/baiwusanyu/WebstormProjects/bwsy-vue-core/packages/runtime-core/src/renderer.ts
+      //  执行的
       if (resolvedComp) {
         doHydrate()
       } else {

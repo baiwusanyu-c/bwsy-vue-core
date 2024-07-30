@@ -305,6 +305,7 @@ export const queuePostRenderEffect = __FEATURE_SUSPENSE__
  * })
  * ```
  */
+
 export function createRenderer<
   HostNode = RendererNode,
   HostElement = RendererElement,
@@ -312,9 +313,39 @@ export function createRenderer<
   return baseCreateRenderer<HostNode, HostElement>(options)
 }
 
+
 // Separate API for creating hydration-enabled renderer.
 // Hydration logic is only used when calling this function, making it
 // tree-shakable.
+
+
+// TODO: bwsy packages/runtime-core/src/apiCreateApp.ts
+//  packages/runtime-dom/src/index.ts
+//  在 vue 的 ssr 客户端激活的入口时 createSSRApp，其内部调用链路为
+//  ensureHydrationRenderer -> createHydrationRenderer
+//  最终创建一个  renderer 渲染器，其内部就包含各种运行时方法的处理和调用，我们熟悉的 diff 算法在其中
+//  最终返回的渲染对象 包含 render，createApp，hydrate 三个属性，
+//  注意 此时的 createApp 时由 createAppAPI 创建的，它返回的是闭包，createSSRApp 中后续调用的
+//  createApp 其实是 createAppAPI 返回的创建 App 函数，此时上下文中已经由渲染器 render 和水合方法 hydrate 了
+//  {
+//     render,
+//     hydrate,
+//     createApp: createAppAPI(render, hydrate),
+//   }
+//  createSSRApp 在的到这个三个返回后直接调用 createApp 创建 app 实例并返回，在用用户调用 mount 时
+//  调用 app 实例的 mount 方法（这里提前解构了 mount 方法），和用户调的不是同一个，
+//  此时 mount 方法的 第二个参数 isHydrate 为 true， 即表示需要进行水合.
+//  在 mount 中，创建完虚拟节点后，如果水合方法 hydrate 存在且 isHydrate 为 true, 则执行水合方法
+//  反之，则执行 render 渲染器,
+
+// TODO: bwsy 而水合方法，实际上来自于 createHydrationFunctions，
+//  它返回一个根水合方法 hydrate（内部调用 hydrateNode） 和 节点水合方法 hydrateNode
+//  hydrateNode 方法，会在 componentUpdateFn 方法中被调用， 而异步组件被 resolve 后，或作为响应式系统的依赖 被调用
+
+// TODO: bwsy 在 componentUpdateFn 中当遇到需要水合的异步组件时，之前会执行 hydrateSubTree，
+//   而懒水合中，则会将 hydrateSubTree、当前的 el，组件实例传递给水合组件对象上的 __asyncHydrate 方法去执行水合策略
+//   hydrateSubTree 内部就调用了 hydrateNode 方法，它会先用 renderComponentRoot 去获取当前组件的子虚拟节点树
+//   然后把它传给 hydrateNode 进行子树水合
 export function createHydrationRenderer(
   options: RendererOptions<Node, Element>,
 ) {
@@ -1326,6 +1357,7 @@ function baseCreateRenderer(
           }
 
           if (isAsyncWrapperVNode) {
+            // TODO: bwsy 在异步组件水合时，执行异步懒水合
             ;(type as ComponentOptions).__asyncHydrate!(
               el as Element,
               instance,
