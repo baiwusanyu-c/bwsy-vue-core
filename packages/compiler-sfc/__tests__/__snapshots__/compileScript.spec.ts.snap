@@ -1039,7 +1039,8 @@ exports[`SFC compile <script setup> > inlineTemplate mode > unref + new expressi
 import Foo from './foo'
         
 export default {
-  setup(__props) {
+  setup(__props, { expose: __expose }) {
+  __expose();
 
         
 return (_ctx, _cache) => {
